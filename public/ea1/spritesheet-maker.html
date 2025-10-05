@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Spritesheet Maker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <h1>Spritesheet Maker</h1>
+    <p>Upload ordered PNG frames named like <code>0001.png</code>, <code>0002.png</code>, ... The tool sorts files
+        numerically by filename and creates a horizontal spritesheet (or grid if you choose).</p>
+
+    <div class="row">
+        <label>Frames (multiple): <input id="files" type="file" accept="image/png" multiple></label>
+    </div>
+
+    <div class="row">
+        <label>Frames per row (0 = single row): <input id="perRow" type="number" value="0" min="0"></label>
+        <label>Padding px: <input id="padding" type="number" value="0" min="0"></label>
+        <button id="make">Make spritesheet</button>
+        <button id="download" disabled>Download PNG</button>
+    </div>
+
+    <p id="status"></p>
+    <canvas id="out"></canvas>
+    <script src="spritesheet-maker.js" defer></script>
+</body>
+
+</html>

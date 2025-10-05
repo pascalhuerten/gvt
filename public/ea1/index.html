@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>EA1 - Interaktiv animierte Scheibe - Pascal Hürten</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <main>
+        <h1>EA1 - Interaktiv animierte Scheibe - 35-Jahre-Einheit - Pascal Hürten</h1>
+
+        <section id="viewer" aria-labelledby="viewer-heading">
+            <h2 id="viewer-heading">Animierte Scheibe</h2>
+
+            <div class="spitesheet-player" role="img" aria-label="Rotierende Münze">
+                <!-- We use an img element and shift it inside a viewport to show frames -->
+                <div class="viewport" id="viewport">
+                    <img id="spritesheet" src="einheitsEuroSpritesheet.png" alt="Spritesheet einer drehenden Münze">
+                </div>
+            </div>
+
+            <div class="controls" role="group" aria-label="Animation Controls">
+                <button id="leftBtn" aria-label="Ein Frame nach links">⟵</button>
+                <button id="rightBtn" aria-label="Ein Frame nach rechts">⟶</button>
+                <button id="autoBtn" aria-pressed="false">Auto (a)</button>
+
+                <div class="speed-control" aria-hidden="false">
+                    <input id="speedRange" type="range" min="1" max="60" value="24">
+                    <label for="speedRange">Geschwindigkeit (FPS): <span id="speedValue">24</span></label>
+                </div>
+
+                <div class="frame-control" aria-label="Frame Steuerung">
+                    <input id="frameRange" type="range" min="1" max="24" value="1">
+                    <label for="frameRange">Frame: <span id="frameValue">1</span> / 24</label>
+                </div>
+            </div>
+
+            <p class="instructions">Tasten: 'l' = links, 'r' = rechts, 'a' = automatisches Drehen starten/stoppen.</p>
+        </section>
+
+        <section id="extras">
+            <h2>Erweiterung: Platzhlater</h2>
+            <div class="spitesheet-player small">
+                <div class="viewport small" id="viewport2">
+                    <img id="rabbitSheet" src="rabbit-spritesheet.png" alt="Platzhalter">
+                </div>
+            </div>
+        </section>
+
+        <section id="doc">
+            <h2>Quellen & Hinweise</h2>
+            <ul>
+                <li>Spritesheet: <a href="einheitsEuroSpritesheet.png" target="_blank">einheitsEuroSpritesheet.png</a>
+                    (24 Frames, je 720×480 px).</li>
+                <li>Frames erstellt mit Blender und Textur aus den Bildern auf
+                    <a href="https://shop.muenze-deutschland.de/Muenzen/Verfuegbare-Produkte/2-Euro-Sonderset-2025-35-Jahre-Deutsche-Einheit.html"
+                        target="_blank">shop.muenze-deutschland.de</a> extrahiert.
+                </li>
+                <li>Spritesheet aus Frames zusammengeabut mit diesem <a href="/spritesheet-maker.html"
+                        target="_blank">spritesheet-maker</a></li>
+                <!-- #https://git.mylab.th-luebeck.de/pascal.huerten/gvt -->
+                <li>Repo: <a href="https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea1?ref_type=heads"
+                        target="_blank">https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea1?ref_type=heads</a></li>
+            </ul>
+        </section>
+
+    </main>
+    <script src="spritesheet-animator.js" defer></script>
+</body>
+
+</html>
