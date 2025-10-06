@@ -1,11 +1,13 @@
 # This file is a template, and might need editing before it works on your project.
 # Full project: https://gitlab.com/pages/plain-html
 
-image: busybox
+image: python:3.11-alpine
 
 pages:
   stage: deploy
   script:
+    - echo "Running cache-bust with commit $CI_COMMIT_SHORT_SHA"
+    - python scripts/cache_bust.py --version "$CI_COMMIT_SHORT_SHA"
     - echo "The site will be deployed to $CI_PAGES_URL"
   artifacts:
     paths:
