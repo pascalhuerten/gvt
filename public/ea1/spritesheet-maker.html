@@ -1,27 +1,39 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Spritesheet Maker</title>
+    <title>Spritesheet Generator</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <h1>Spritesheet Maker</h1>
-    <p>Upload ordered PNG frames named like <code>0001.png</code>, <code>0002.png</code>, ... The tool sorts files
-        numerically by filename and creates a horizontal spritesheet (or grid if you choose).</p>
+    <h1>Spritesheet Generator</h1>
+    <p>Lade geordnete PNG-Frames hoch, die benannt sind wie <code>0001.png</code>, <code>0002.png</code>, ... oder
+        <code>hase01.png</code>, <code>hase02.png</code>, ... Das Tool sortiert Dateien numerisch nach Dateiname und
+        erstellt ein horizontales Spritesheet (oder Raster, wenn gewählt).</p>
 
     <div class="row">
-        <label>Frames (multiple): <input id="files" type="file" accept="image/png" multiple></label>
+        <label>Frames (mehrere): <input id="files" type="file" accept="image/png" multiple></label>
     </div>
 
     <div class="row">
-        <label>Frames per row (0 = single row): <input id="perRow" type="number" value="0" min="0"></label>
-        <label>Padding px: <input id="padding" type="number" value="0" min="0"></label>
-        <button id="make">Make spritesheet</button>
-        <button id="download" disabled>Download PNG</button>
+        <label><input id="autoSort" type="checkbox" checked> Automatisch numerisch sortieren</label>
+    </div>
+
+    <div class="row">
+        <div id="fileListContainer" aria-live="polite">
+            <p>Ausgewählte Dateien (Reihenfolge):</p>
+            <ul id="fileList"></ul>
+        </div>
+    </div>
+
+    <div class="row">
+        <label>Frames pro Zeile (0 = eine Zeile): <input id="perRow" type="number" value="0" min="0"></label>
+        <label>Abstand px: <input id="padding" type="number" value="0" min="0"></label>
+        <button id="make">Spritesheet erstellen</button>
+        <button id="download" disabled>PNG herunterladen</button>
     </div>
 
     <p id="status"></p>
