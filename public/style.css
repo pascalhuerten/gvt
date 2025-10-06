@@ -1,7 +1,28 @@
 body {
-  font-family: sans-serif;
-  margin: auto;
-  max-width: 1280px;
+  font-family: Arial, sans-serif;
+  line-height: 1.4;
+  padding: 20px;
+  background: #f7f7f9;
+  color: #111
+}
+
+:root {
+  --frame-w: 720px;
+  --frame-h: 480px;
+}
+
+* {
+  box-sizing: border-box
+}
+
+main {
+  max-width: 980px;
+  margin: 0 auto
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin-bottom: 8px
 }
 
 .navbar {
@@ -20,4 +41,186 @@ body {
 
 .navbar a:hover {
   color: #ffffff;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  margin-bottom: 12px;
+}
+
+.breadcrumb a {
+  color: #0b74de;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.spitesheet-player {
+  margin: 12px 0
+}
+
+.viewport {
+  width: var(--frame-w);
+  height: var(--frame-h);
+  overflow: hidden;
+  border: 4px solid #333;
+  border-radius: 8px;
+  background: #fff;
+  position: relative
+}
+
+.viewport.small {
+  width: 240px;
+  height: 160px
+}
+
+.viewport img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  image-rendering: crisp-edges
+}
+
+.controls {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center
+}
+
+.controls button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background: #fff;
+  cursor: pointer
+}
+
+.controls button[aria-pressed="true"] {
+  background: #0b74de;
+  color: #fff;
+  border-color: #084ea8
+}
+
+.instructions {
+  font-size: 0.95rem;
+  color: #333
+}
+
+section#doc {
+  margin-top: 18px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #ddd
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px
+}
+
+canvas {
+  border: 1px solid #ccc;
+  display: block;
+  margin-top: 8px
+}
+
+/* File list (spritesheet-generator UI) */
+#fileListContainer {
+  background: #fff;
+  border: 1px solid #e3e3e6;
+  padding: 8px;
+  border-radius: 6px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+#fileList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 6px;
+  transition: background .12s ease, box-shadow .12s ease;
+}
+
+.file-item:hover {
+  background: #f2f6fb;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.file-item img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+
+.file-item span {
+  flex: 1 1 auto;
+  font-size: 0.95rem;
+  color: #222;
+  word-break: break-all;
+}
+
+.file-item button {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  cursor: pointer;
+}
+
+.file-item button:hover {
+  background: #eef6ff;
+}
+
+.file-item button:active {
+  transform: translateY(1px);
+}
+
+.file-item .btn-remove {
+  color: #a33;
+  border-color: #f5c6c6;
+}
+
+@media (max-width:600px) {
+  .file-item {
+    gap: 8px;
+  }
+
+  .file-item img {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+@media (max-width:800px) {
+  :root {
+    --frame-w: 360px;
+    --frame-h: 240px
+  }
+
+  .viewport {
+    width: var(--frame-w);
+    height: var(--frame-h)
+  }
 }

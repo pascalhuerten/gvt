@@ -5,14 +5,19 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Spritesheet Generator</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../style.css">
 </head>
 
 <body>
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="../../index.html">← Zurück zur Übersicht</a>
+    </nav>
+
     <h1>Spritesheet Generator</h1>
     <p>Lade geordnete PNG-Frames hoch, die benannt sind wie <code>0001.png</code>, <code>0002.png</code>, ... oder
         <code>hase01.png</code>, <code>hase02.png</code>, ... Das Tool sortiert Dateien numerisch nach Dateiname und
-        erstellt ein horizontales Spritesheet (oder Raster, wenn gewählt).</p>
+        erstellt ein horizontales Spritesheet (oder Raster, wenn gewählt).
+    </p>
 
     <div class="row">
         <label>Frames (mehrere): <input id="files" type="file" accept="image/png" multiple></label>
@@ -38,7 +43,7 @@
 
     <p id="status"></p>
     <canvas id="out"></canvas>
-    <script src="spritesheet-maker.js" defer></script>
+    <script src="spritesheet-generator.js" defer></script>
 </body>
 
 </html>
