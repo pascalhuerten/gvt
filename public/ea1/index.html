@@ -21,7 +21,8 @@
 
             <div class="spitesheet-player" role="img" aria-label="Rotierende Münze">
                 <!-- We use an img element and shift it inside a viewport to show frames -->
-                <div class="viewport" id="viewport">
+                <div class="viewport" id="viewport" data-total-frames="24" data-frame-w="720" data-frame-h="480"
+                    data-frames-per-row="6">
                     <img id="spritesheet" src="einheitsEuroSpritesheet.png" alt="Spritesheet einer drehenden Münze">
                 </div>
             </div>
@@ -46,12 +47,32 @@
         </section>
 
         <section id="extras">
-            <h2>Erweiterung: Platzhlater</h2>
-            <div class="spitesheet-player small">
-                <div class="viewport small" id="viewport2">
-                    <img id="rabbitSheet" src="rabbit-spritesheet.png" alt="Platzhalter">
+            <h2>Erweiterung: Abtauchender Wal</h2>
+            <div class="spitesheet-player">
+                <!-- data- attributes tell the animator how this spritesheet is laid out -->
+                <div class="viewport" id="viewport2" data-total-frames="54" data-frame-w="720" data-frame-h="480"
+                    data-frames-per-row="6">
+                    <img id="waleSheet" src="walSpritesheet.png" alt="Platzhalter">
                 </div>
             </div>
+
+            <div class="controls" role="group" aria-label="Animation Controls">
+                <button id="leftBtn" aria-label="Ein Frame nach links">⟵</button>
+                <button id="rightBtn" aria-label="Ein Frame nach rechts">⟶</button>
+                <button id="autoBtn" aria-pressed="false">Auto (a)</button>
+
+                <div class="speed-control" aria-hidden="false">
+                    <input id="speedRange" type="range" min="1" max="60" value="24">
+                    <label for="speedRange">Geschwindigkeit (FPS): <span id="speedValue">24</span></label>
+                </div>
+
+                <div class="frame-control" aria-label="Frame Steuerung">
+                    <input id="frameRange" type="range" min="1" max="24" value="1">
+                    <label for="frameRange">Frame: <span id="frameValue">1</span> / 24</label>
+                </div>
+            </div>
+
+            <p class="instructions">Tasten: 'l' = links, 'r' = rechts, 'a' = automatisches Drehen starten/stoppen.</p>
         </section>
 
         <section id="doc">
@@ -59,16 +80,15 @@
             <ul>
                 <li>Spritesheet: <a href="einheitsEuroSpritesheet.png" target="_blank">einheitsEuroSpritesheet.png</a>
                     (24 Frames, je 720×480 px).</li>
-                <li>Frames erstellt mit Blender und Textur aus den Bildern auf
+                <li>Frames erstellt mit Blender und Textur der Münze aus den Bildern auf
                     <a href="https://shop.muenze-deutschland.de/Muenzen/Verfuegbare-Produkte/2-Euro-Sonderset-2025-35-Jahre-Deutsche-Einheit.html"
                         target="_blank">shop.muenze-deutschland.de</a> extrahiert.
                 </li>
                 <li>Spritesheet aus Frames zusammengeabut mit diesem <a href="../util/spritesheet-generator/"
                         target="_blank">spritesheet-generator</a></li>
                 <!-- #https://git.mylab.th-luebeck.de/pascal.huerten/gvt -->
-                <li>Repo: <a
-                        href="https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea1?ref_type=heads"
-                        target="_blank">https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea1?ref_type=heads</a>
+                <li>Repo: <a href="https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea1"
+                        target="_blank">https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea1</a>
                 </li>
             </ul>
         </section>

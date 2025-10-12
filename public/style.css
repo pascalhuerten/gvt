@@ -59,15 +59,14 @@ h1 {
 }
 
 .spitesheet-player {
-  margin: 12px 0
+  margin: 12px 0;
+  width: fit-content;
 }
 
 .viewport {
   width: var(--frame-w);
   height: var(--frame-h);
   overflow: hidden;
-  border: 4px solid #333;
-  border-radius: 8px;
   background: #fff;
   position: relative
 }
@@ -106,6 +105,19 @@ h1 {
   border-color: #084ea8
 }
 
+/* Only the active player shows the frame/border to avoid double frames */
+.spitesheet-player .viewport {
+  border: 4px solid black;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(11, 116, 222, 0.12);
+}
+
+/* Only the active player shows the frame/border to avoid double frames */
+.spitesheet-player.active .viewport {
+  border: 4px solid #0b74de;
+  box-shadow: 0 2px 8px rgba(11, 116, 222, 0.12);
+}
+
 .instructions {
   font-size: 0.95rem;
   color: #333
@@ -124,12 +136,6 @@ section#doc {
   gap: 8px;
   align-items: center;
   margin-bottom: 8px
-}
-
-canvas {
-  border: 1px solid #ccc;
-  display: block;
-  margin-top: 8px
 }
 
 /* File list (spritesheet-generator UI) */
