@@ -85,10 +85,11 @@
         const frameValue = controls ? controls.querySelector('#frameValue') : null;
 
         // Local state
-        let current = 0; // 0-based
+        let current = 0; // Current frame index
         let autoTimer = null;
         let userInteractingFrame = false;
 
+        // Calculate x/y offset of current frame and position the sheet inside the viewport
         function updatePosition() {
             if (!sheet) return;
             const cols = FRAMES_PER_ROW > 0 ? FRAMES_PER_ROW : TOTAL_FRAMES;
@@ -111,6 +112,7 @@
             }
         }
 
+        // Move to the next/previous frame, looping around at the ends using modulo arithmetic
         function step(delta) {
             current = (current + delta + TOTAL_FRAMES) % TOTAL_FRAMES;
             updatePosition();
@@ -119,6 +121,7 @@
         function startAuto() {
             if (autoTimer) return;
             if (autoBtn) autoBtn.setAttribute('aria-pressed', 'true');
+            // Call step(1) at the configured fps by setting an interval timer
             autoTimer = setInterval(() => step(1), 1000 / fps);
         }
         function stopAuto() {
@@ -127,8 +130,8 @@
             if (autoBtn) autoBtn.setAttribute('aria-pressed', 'false');
         }
 
-        // Image load handling: set sheet size and ensure viewport clipping
         if (sheet) {
+            // Set sheet size and ensure viewport clipping once image load completes
             sheet.addEventListener('load', () => {
                 const cols = FRAMES_PER_ROW > 0 ? FRAMES_PER_ROW : TOTAL_FRAMES;
                 const rows = Math.ceil(TOTAL_FRAMES / cols);
@@ -161,7 +164,7 @@
         if (rightBtn) rightBtn.addEventListener('click', () => { stopAuto(); step(1); });
         if (autoBtn) autoBtn.addEventListener('click', () => { if (autoTimer) stopAuto(); else startAuto(); });
 
-        // Keyboard activation for buttons (space/enter)
+        // Keyboard activation for buttons (space/enter) after focusing them with tab
         [leftBtn, rightBtn, autoBtn].forEach(b => {
             if (!b) return;
             b.addEventListener('keydown', e => {
@@ -207,7 +210,7 @@
             frameRange.addEventListener('change', () => { userInteractingFrame = false; });
         }
 
-        // initial position
+        // set initial position
         updatePosition();
     }
 
