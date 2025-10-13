@@ -21,8 +21,8 @@
 
             <div class="spitesheet-player" role="img" aria-label="Rotierende Münze">
                 <!-- We use an img element and shift it inside a viewport to show frames -->
-                <div class="viewport" id="viewport" data-total-frames="24" data-frame-w="720" data-frame-h="480"
-                    data-frames-per-row="6">
+                <div class="viewport" id="viewport" width="720" height="480" data-total-frames="24" data-frame-w="720"
+                    data-frame-h="480" data-frames-per-row="6">
                     <img id="spritesheet" src="einheitsEuroSpritesheet.png" alt="Spritesheet einer drehenden Münze">
                 </div>
             </div>
@@ -50,9 +50,9 @@
             <h2>Erweiterung: Abtauchender Wal</h2>
             <div class="spitesheet-player">
                 <!-- data- attributes tell the animator how this spritesheet is laid out -->
-                <div class="viewport" id="viewport2" data-total-frames="104" data-frame-w="480" data-frame-h="320"
-                    data-frames-per-row="8">
-                    <img id="waleSheet" src="walSpritesheet3.png" alt="Platzhalter">
+                <div class="viewport" id="viewport2" width="720" height="480" data-total-frames="94" data-frame-w="720"
+                    data-frame-h="480" data-frames-per-row="10">
+                    <img id="waleSheet" src="walSpritesheet4-3d.png" alt="Abtauchender Wal">
                 </div>
             </div>
 
@@ -79,16 +79,20 @@
             <h2>Quellen & Hinweise</h2>
             <ul>
                 <li>Spritesheets: <a href="einheitsEuroSpritesheet.png" target="_blank">einheitsEuroSpritesheet.png</a>
-                    (24 Frames, je 720×480 px). <a href="walSpritesheet3.png" target="_blank">walSpritesheet3.png</a>
-                    (104 Frames, je 480×320 px).
+                    (24 Frames, je 720×480 px). <a href="walSpritesheet4-3d.png"
+                        target="_blank">walSpritesheet4-3d.png</a>
+                    (94 Frames, je 720×480 px).
                 </li>
-                <li>Frames erstellt mit Blender und Textur der Münze aus den Bildern auf
+                <li>Münze in Blender mit einem Zylinder modelliert und mit screenshots von
                     <a href="https://shop.muenze-deutschland.de/Muenzen/Verfuegbare-Produkte/2-Euro-Sonderset-2025-35-Jahre-Deutsche-Einheit.html"
-                        target="_blank">shop.muenze-deutschland.de</a> extrahiert.
+                        target="_blank">shop.muenze-deutschland.de</a> texturiert, schließlich animiert.
+                    Der Wal wurde in Blender modelliert (ausschließlich mit Dreiecken in Vorbereitung auf EA2),
+                    texturiert und animiert. Luftbläschen sind einfache haltransparente Scheiben. Halbtransparentes
+                    Gitter unter der Lichtquelle simuliert die Lichtstrahlen im Wasser.
+                    Die Animationen wurden in Blender als einzelne Frames gerendert (jeweils 720×480 px).
                 </li>
                 <li>Spritesheet aus Frames zusammengeabut mit diesem <a href="../util/spritesheet-generator/"
-                        target="_blank">spritesheet-generator</a></li>
-                <!-- #https://git.mylab.th-luebeck.de/pascal.huerten/gvt -->
+                        target="_blank">Spritesheet Generator</a></li>
                 <li>Repo: <a href="https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea1"
                         target="_blank">https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea1</a>
                 </li>
