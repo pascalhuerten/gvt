@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>EA2 | 2D Geometrie aus Linien | Pascal Hürten</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../ea2/style.css">
+</head>
+
+<body>
+    <main>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="../index.html">← Zurück zur Übersicht</a>
+        </nav>
+
+        <h1>EA2 - 2D Geometrie aus Linien - Pascal Hürten</h1>
+
+        <section id="viewer" aria-labelledby="viewer-heading">
+            <h2 id="viewer-heading">WebGL Canvas (interaktiv)</h2>
+
+            <p>Zeichne mit der Maus auf dem Canvas.</p>
+
+            <div id="canvas-wrap">
+                <canvas id="background-canvas" class="background" width="720" height="480"></canvas>
+                <canvas id="overlay-canvas" class="overlay" width="720" height="480" aria-hidden="true"></canvas>
+                <aside id="controls">
+                    <div class="row">
+                        <label for="mode">Draw-Mode:</label>
+                        <select id="mode">
+                            <option value="LINES">LINES</option>
+                            <option value="LINE_STRIP" selected>LINE_STRIP</option>
+                            <option value="LINE_LOOP">LINE_LOOP</option>
+                            <option value="TRIANGLES">TRIANGLES</option>
+                            <option value="TRIANGLE_STRIP">TRIANGLE_STRIP</option>
+                            <option value="TRIANGLE_FAN">TRIANGLE_FAN</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <label for="lineWidth">Line width:</label>
+                        <input id="lineWidth" type="range" min="1" max="10" value="1">
+                        <span id="lineWidthVal">1</span>
+                    </div>
+                    <div class="row buttons">
+                        <button id="undo">Undo</button>
+                        <button id="clear">Clear</button>
+                        <button id="export">Export vertices</button>
+                        <label for="fileInput">Import vertices:</label>
+                        <input id="fileInput" type="file" accept=".obj,.json" style="display:inline-block">
+                        <button id="loadDefault">Load default</button>
+                    </div>
+                    <div class="row small">
+                        <small id="vertex-count">Vertices: 0</small>
+                    </div>
+                </aside>
+            </div>
+            <p id="instructions">Klicken, um Punkte hinzuzufügen. Halte Strg/Ctrl, und ziehe, um kontinuierlich Punkte
+                zu setzen.
+                Rechtsklick entfernt den letzten Punkt (Undo).</p>
+        </section>
+
+        <section id="doc">
+            <h2>Quellen & Hinweise</h2>
+            <ul>
+                <li>Repo: <a href="https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea2"
+                        target="_blank">https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea2</a>
+                </li>
+            </ul>
+        </section>
+    </main>
+    <script src="script.js" defer></script>
+</body>
+
+</html>
+
+</body>
+
+</html>
