@@ -22,6 +22,42 @@
         return Number.isFinite(n) ? n : fallback;
     }
 
+    // Helper to move a node into a target parent before a reference child and
+    // return a restore function that puts the node back to its original place.
+    // Uses native Element.moveBefore where available to preserve element state,
+    // falling back to insertBefore when necessary.
+    function moveBefore(node, targetParent, referenceNode) {
+        if (!node || !targetParent) return function noop() { };
+        const originalParent = node.parentNode;
+        const originalNext = node.nextSibling; // may be null
+
+        try {
+            if (typeof targetParent.moveBefore === 'function') {
+                targetParent.moveBefore(node, referenceNode || null);
+            } else {
+                targetParent.insertBefore(node, referenceNode || null);
+            }
+        } catch (e) {
+            // fallback
+            try { targetParent.insertBefore(node, referenceNode || null); } catch (e2) { /* ignore */ }
+        }
+
+        return function restore() {
+            if (!originalParent) return;
+            try {
+                if (typeof originalParent.moveBefore === 'function') {
+                    originalParent.moveBefore(node, originalNext || null);
+                } else if (originalNext && originalNext.parentNode === originalParent) {
+                    originalParent.insertBefore(node, originalNext);
+                } else {
+                    originalParent.appendChild(node);
+                }
+            } catch (e) {
+                try { originalParent.appendChild(node); } catch (e2) { /* ignore */ }
+            }
+        };
+    }
+
     // Initialize one player for each .spitesheet-player found
     const players = Array.from(document.querySelectorAll('.spitesheet-player'));
 
@@ -51,6 +87,14 @@
             ev.preventDefault(); activePlayer.stopAuto(); activePlayer.step(1);
         } else if (ev.key === 'a' || ev.key === 'A') {
             ev.preventDefault(); if (activePlayer.autoRunning) activePlayer.stopAuto(); else activePlayer.startAuto();
+        } else if (ev.key === 'f' || ev.key === 'F') {
+            ev.preventDefault(); // toggle fullscreen for active player
+            if (typeof activePlayer.toggleFullscreen === 'function') activePlayer.toggleFullscreen();
+        } else if (ev.key === 'Escape' || ev.key === 'Esc') {
+            // If active player is fullscreen, exit it
+            if (typeof activePlayer.isFullscreen !== 'undefined' && activePlayer.isFullscreen && typeof activePlayer.toggleFullscreen === 'function') {
+                ev.preventDefault(); activePlayer.toggleFullscreen();
+            }
         }
     });
 
@@ -65,6 +109,21 @@
         let controls = null;
         if (playerEl.nextElementSibling && playerEl.nextElementSibling.classList.contains('controls')) {
             controls = playerEl.nextElementSibling;
+        }
+
+        // Inject fullscreen styles once
+        if (!document.getElementById('spritesheet-animator-fullscreen-styles')) {
+            const style = document.createElement('style');
+            style.id = 'spritesheet-animator-fullscreen-styles';
+            style.textContent = `
+            .spitesheet-fullscreen-container{
+                position:fixed!important;left:0;top:0;width:100vw;height:100vh;z-index:99999;
+                display:flex;align-items:center;justify-content:center;background:#000;
+            }
+            .spitesheet-fullscreen-container .spitesheet-player{outline:none}
+            .spitesheet-fullscreen-close{position:absolute;right:1rem;top:1rem;z-index:100000}
+            `;
+            document.head.appendChild(style);
         }
 
         // Read configuration (support data- attributes on viewport or img)
@@ -88,6 +147,10 @@
         let current = 0; // Current frame index
         let autoTimer = null;
         let userInteractingFrame = false;
+        // Fullscreen state
+        let fullscreenContainer = null;
+        let restoreFns = null; // array of restore functions for nodes moved
+        let savedViewportTransform = '';
 
         // Calculate x/y offset of current frame and position the sheet inside the viewport
         function updatePosition() {
@@ -130,6 +193,84 @@
             if (autoBtn) autoBtn.setAttribute('aria-pressed', 'false');
         }
 
+        // Fullscreen helpers
+        function enterFullscreen() {
+            if (fullscreenContainer) return; // already fullscreen
+            // create container
+            fullscreenContainer = document.createElement('div');
+            fullscreenContainer.className = 'spitesheet-fullscreen-container';
+
+            // close button
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'spitesheet-fullscreen-close';
+            closeBtn.textContent = '✕';
+            closeBtn.addEventListener('click', () => toggleFullscreen());
+            fullscreenContainer.appendChild(closeBtn);
+
+            document.body.appendChild(fullscreenContainer);
+
+            // move only the playerEl into the container preserving the node
+            restoreFns = [];
+            restoreFns.push(moveBefore(playerEl, fullscreenContainer, closeBtn));
+
+            // hide controls in place (do not move them)
+            if (controls) {
+                controls._savedDisplay = controls.style.display || '';
+                controls.style.display = 'none';
+            }
+
+            // scale viewport to fill full screen height while preserving aspect
+            if (viewport) {
+                try {
+                    const scale = FRAME_H ? (window.innerHeight / FRAME_H) : 1;
+                    savedViewportTransform = viewport.style.transform || '';
+                    viewport.style.transformOrigin = 'center center';
+                    viewport.style.transform = `scale(${scale})`;
+                    // center horizontally when scaled
+                    viewport.style.margin = '0 auto';
+                } catch (e) { /* ignore */ }
+            }
+
+            if (controls) {
+                // make sure controls are visible above
+                controls.style.zIndex = '100001';
+            }
+        }
+
+        function exitFullscreen() {
+            if (!fullscreenContainer) return;
+            // restore moved nodes in reverse order
+            if (restoreFns && restoreFns.length) {
+                for (let i = restoreFns.length - 1; i >= 0; --i) {
+                    try { restoreFns[i](); } catch (e) { /* ignore */ }
+                }
+            }
+            restoreFns = null;
+            // restore controls visibility
+            if (controls) {
+                controls.style.display = controls._savedDisplay || '';
+                delete controls._savedDisplay;
+            }
+
+            // restore viewport transform
+            if (viewport) {
+                viewport.style.transform = savedViewportTransform || '';
+                viewport.style.transformOrigin = '';
+            }
+
+            // remove container
+            try { fullscreenContainer.remove(); } catch (e) { /* ignore */ }
+            fullscreenContainer = null;
+        }
+
+        function toggleFullscreen() {
+            if (fullscreenContainer) {
+                exitFullscreen();
+            } else {
+                enterFullscreen();
+            }
+        }
+
         if (sheet) {
             // Set sheet size and ensure viewport clipping once image load completes
             sheet.addEventListener('load', () => {
@@ -164,8 +305,12 @@
         if (rightBtn) rightBtn.addEventListener('click', () => { stopAuto(); step(1); });
         if (autoBtn) autoBtn.addEventListener('click', () => { if (autoTimer) stopAuto(); else startAuto(); });
 
+        // fullscreen button from HTML (if present)
+        const fsBtn = controls ? controls.querySelector('.fullscreenBtn') : null;
+        if (fsBtn) fsBtn.addEventListener('click', () => { toggleFullscreen(); fsBtn.setAttribute('aria-pressed', String(!!fullscreenContainer)); });
+
         // Keyboard activation for buttons (space/enter) after focusing them with tab
-        [leftBtn, rightBtn, autoBtn].forEach(b => {
+        [leftBtn, rightBtn, autoBtn, fsBtn].forEach(b => {
             if (!b) return;
             b.addEventListener('keydown', e => {
                 if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') {
@@ -176,7 +321,7 @@
 
         // Make the player focusable and set it active on click/focus so global keys target it
         if (!playerEl.hasAttribute('tabindex')) playerEl.setAttribute('tabindex', '0');
-        const makeActive = () => setActivePlayer({ step, startAuto, stopAuto, playerEl, updatePosition, get autoRunning() { return !!autoTimer; } });
+        const makeActive = () => setActivePlayer({ step, startAuto, stopAuto, playerEl, updatePosition, toggleFullscreen, get autoRunning() { return !!autoTimer; }, get isFullscreen() { return !!fullscreenContainer; } });
         playerEl.addEventListener('click', makeActive);
         playerEl.addEventListener('focus', makeActive);
         // If no active player yet, make the first one active by default

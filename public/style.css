@@ -16,7 +16,7 @@ body {
 }
 
 main {
-  max-width: 980px;
+  max-width: 720px;
   margin: 0 auto
 }
 
@@ -83,7 +83,8 @@ h1 {
   margin-top: 10px;
   display: flex;
   gap: 8px;
-  align-items: center
+  align-items: center;
+  justify-content: space-between;
 }
 
 .controls button {
@@ -212,6 +213,36 @@ section#doc {
 .file-item .btn-remove {
   color: #a33;
   border-color: #f5c6c6;
+}
+
+/* Fullscreen container for spritesheet player */
+.spitesheet-fullscreen-container {
+  position: fixed !important;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.spitesheet-fullscreen-container .spitesheet-player {
+  outline: none
+}
+
+.spitesheet-fullscreen-close {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  z-index: 100000;
+  color: #fff;
+  background: transparent;
+  border: 0;
+  font-size: 1.4rem;
+  cursor: pointer
 }
 
 @media (max-width:600px) {
