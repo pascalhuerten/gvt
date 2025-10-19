@@ -1,0 +1,17 @@
+/* #viewer {
+    position: relative;
+    padding: 1em;
+    margin: 0;
+    z-index: 1;
+    border-radius: 4px;
+    overflow: hidden;
+    min-height: 400px;
+}
+
+.background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1000;
+    width: 100%;
+} */
