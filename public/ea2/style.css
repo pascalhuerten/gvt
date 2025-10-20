@@ -20,6 +20,14 @@ main {
     pointer-events: none;
 }
 
+#background-image-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    /* let mouse events pass through to background canvas */
+    pointer-events: none;
+}
+
 #background-canvas,
 .background,
 #background-canvas {
@@ -59,6 +67,12 @@ main {
     flex: 1;
 }
 
+#controls input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
 #controls button {
     padding: 6px 8px;
     border-radius: 4px;
@@ -69,6 +83,260 @@ main {
 
 #controls button:hover {
     background: #f3f3f3;
+}
+
+.layers-list {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: #fafafa;
+    padding: 6px;
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+}
+
+.layer-item {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 6px;
+    margin-bottom: 4px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.layer-item.active {
+    background: #e3f2fd;
+    border-color: #1976d2;
+}
+
+.layer-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.layer-item input[type="text"] {
+    flex: 1;
+    padding: 4px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.layer-item input[type="color"] {
+    width: 36px;
+    height: 28px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+    padding: 2px;
+}
+
+.layer-item button {
+    padding: 4px 6px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.layer-item button:hover {
+    background: #f5f5f5;
+}
+
+.layer-item button.delete {
+    background: #ffebee;
+    border-color: #ef5350;
+    color: #d32f2f;
+}
+
+.layer-item button.delete:hover {
+    background: #ffcdd2;
+}
+
+.layer-item button.shader-btn {
+    background: #e8f5e9;
+    border-color: #66bb6a;
+    color: #2e7d32;
+    font-size: 11px;
+    padding: 3px 6px;
+}
+
+.layer-item button.shader-btn:hover {
+    background: #c8e6c9;
+}
+
+/* Shader Drawer (Bottom Panel) */
+.shader-drawer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0;
+    background: rgba(30, 30, 30, 0.92);
+    backdrop-filter: blur(8px);
+    border-top: 2px solid #007acc;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    transition: height 0.3s ease-out;
+    overflow: hidden;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.shader-drawer.open {
+    height: 50vh;
+}
+
+.shader-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: rgba(37, 37, 38, 0.9);
+    border-bottom: 1px solid #3e3e42;
+    flex-shrink: 0;
+}
+
+.shader-drawer-header h2 {
+    margin: 0;
+    font-size: 16px;
+    color: #cccccc;
+    white-space: nowrap;
+}
+
+.shader-drawer-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #cccccc;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.shader-drawer-close:hover {
+    color: #ffffff;
+}
+
+.shader-drawer-content {
+    flex: 1;
+    display: flex;
+    gap: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.shader-editor-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #3e3e42;
+    overflow: hidden;
+}
+
+.shader-editor-column:last-child {
+    border-right: none;
+}
+
+.shader-editor-column h3 {
+    margin: 0;
+    padding: 10px 15px;
+    font-size: 12px;
+    color: #858585;
+    background: rgba(30, 30, 30, 0.5);
+    border-bottom: 1px solid #3e3e42;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.shader-textarea {
+    flex: 1;
+    padding: 15px;
+    border: none;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    resize: none;
+    background: rgba(30, 30, 30, 0.7);
+    color: #d4d4d4;
+    line-height: 1.5;
+}
+
+.shader-textarea:focus {
+    outline: none;
+    background: rgba(30, 30, 30, 0.9);
+}
+
+.shader-error {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 80px;
+    padding: 10px;
+    background: rgba(90, 44, 44, 0.9);
+    border-top: 1px solid #8b4545;
+    color: #ffcccb;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-y: auto;
+    display: none;
+    z-index: 10;
+}
+
+.shader-error:not(:empty) {
+    display: block;
+}
+
+.shader-drawer-footer {
+    display: flex;
+    gap: 10px;
+    padding: 12px 20px;
+    border-top: 1px solid #3e3e42;
+    background: rgba(37, 37, 38, 0.9);
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.shader-drawer-footer button {
+    padding: 8px 16px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-primary {
+    background: #4caf50;
+    color: white;
+    border-color: #45a049;
+}
+
+.btn-primary:hover {
+    background: #45a049;
+}
+
+.btn-secondary {
+    background: #3e3e42;
+    color: #cccccc;
+    border-color: #555;
+}
+
+.btn-secondary:hover {
+    background: #464646;
+    color: #ffffff;
 }
 
 #instructions {

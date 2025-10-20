@@ -1,17 +1,109 @@
-// Interactive WebGL drawing
+// Interactive WebGL drawing with multiple layers and custom shaders
 (function () {
     'use strict';
 
-    const drawColor = [0.1, 0.2, 0.7, 1.0];
     const clearColor = [0.98, 0.98, 1.0, 1.0];
 
-    // Fattened list of vertices (x,y) in NDC (-1..1) NDC = Normalized Device Coordinates
-    const vertices = [];
+    // Default shaders
+    const DEFAULT_VS = `#version 300 es
+in vec2 aPos;
+void main(){
+    gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+    const DEFAULT_FS = `#version 300 es
+precision mediump float;
+uniform vec4 uColor;
+out vec4 outColor;
+void main(){
+    outColor = uColor;
+}`;
+
+    const layerColors = [
+        [0.1, 0.2, 0.7, 1.0],    // blue
+        [0.9, 0.2, 0.1, 1.0],    // red
+        [0.1, 0.7, 0.2, 1.0],    // green
+        [0.9, 0.7, 0.1, 1.0],    // orange
+        [0.7, 0.1, 0.7, 1.0],    // purple
+        [0.1, 0.7, 0.7, 1.0],    // cyan
+    ];
+
+    // Helper functions for color conversion
+    function rgbaToHex(rgba) {
+        const r = Math.round(rgba[0] * 255).toString(16).padStart(2, '0');
+        const g = Math.round(rgba[1] * 255).toString(16).padStart(2, '0');
+        const b = Math.round(rgba[2] * 255).toString(16).padStart(2, '0');
+        return '#' + r + g + b;
+    }
+
+    function hexToRgba(hex) {
+        const r = parseInt(hex.slice(1, 3), 16) / 255;
+        const g = parseInt(hex.slice(3, 5), 16) / 255;
+        const b = parseInt(hex.slice(5, 7), 16) / 255;
+        return [r, g, b, 1.0];
+    }
+
+    // Layer system
+    let layers = [];
+    let currentLayerId = null;
+    let nextLayerId = 1;
+
+    class Layer {
+        constructor(id, name) {
+            this.id = id;
+            this.name = name;
+            this.vertices = [];
+            this.visible = true;
+            this.color = layerColors[(id - 1) % layerColors.length];
+            this.vertexShader = DEFAULT_VS;
+            this.fragmentShader = DEFAULT_FS;
+            this.program = null;
+            this.shaderError = null;
+        }
+    }
+
+    function createNewLayer() {
+        const layer = new Layer(nextLayerId++, `Layer ${nextLayerId}`);
+        layers.push(layer);
+        if (!currentLayerId) currentLayerId = layer.id;
+        return layer;
+    }
+
+    function getCurrentLayer() {
+        return layers.find(l => l.id === currentLayerId) || layers[0];
+    }
+
+    function setCurrentLayer(layerId) {
+        if (layers.find(l => l.id === layerId)) {
+            currentLayerId = layerId;
+            updateLayerUI();
+        }
+    }
+
+    function deleteLayer(layerId) {
+        const idx = layers.findIndex(l => l.id === layerId);
+        if (idx !== -1) {
+            layers.splice(idx, 1);
+            if (currentLayerId === layerId) {
+                currentLayerId = layers.length > 0 ? layers[0].id : null;
+                if (layers.length === 0) createNewLayer();
+            }
+            updateLayerUI();
+        }
+    }
+
+    // Background image
+    let backgroundImage = null;
+    let backgroundOpacity = 0.5;
+
+    // Overlay visibility
+    let showOverlay = true;
 
     // Drawing state
     let isDrawing = false;
     const MIN_DIST = 12; // minimum pixel distance between pushed points
     let lastPush = null; // last pushed point in client coordinates {x,y}
+    let startTime = Date.now(); // for uTime uniform
 
     // Shaders (simple pass-through for 2D positions)
     const vsSrc = `#version 300 es
@@ -24,8 +116,10 @@
 
     // UI elements
     const canvas = document.getElementById('background-canvas');
+    const bgImageCanvas = document.getElementById('background-image-canvas');
     const gl = canvas.getContext('webgl2');
     if (!gl) { console.error('WebGL2 not available'); return; }
+    const bgImageCtx = bgImageCanvas.getContext('2d');
     const modeSelection = document.getElementById('mode');
     const lineWidthInp = document.getElementById('lineWidth');
     const lineWidthVal = document.getElementById('lineWidthVal');
@@ -35,22 +129,211 @@
     const fileInput = document.getElementById('fileInput');
     const loadDefaultBtn = document.getElementById('loadDefault');
     const overlay = document.getElementById('overlay-canvas');
-    const overlayContenxt = overlay.getContext('2d');
+    const overlayContext = overlay.getContext('2d');
     const vertexCountEl = document.getElementById('vertex-count');
+    const bgImageInput = document.getElementById('bgImage');
+    const bgOpacityInput = document.getElementById('bgOpacity');
+    const bgOpacityVal = document.getElementById('bgOpacityVal');
+    const clearBgImageBtn = document.getElementById('clearBgImage');
+    const layersContainer = document.getElementById('layers-container');
+    const addLayerBtn = document.getElementById('addLayer');
+    const showOverlayCheckbox = document.getElementById('showOverlay');
+    const shaderDrawer = document.getElementById('shaderDrawer');
+    const shaderDrawerClose = document.getElementById('shaderDrawerClose');
+    const shaderLayerName = document.getElementById('shaderLayerName');
+    const vertexShaderText = document.getElementById('vertexShaderText');
+    const fragmentShaderText = document.getElementById('fragmentShaderText');
+    const shaderApplyBtn = document.getElementById('shaderApply');
+    const shaderResetBtn = document.getElementById('shaderReset');
+    const shaderCancelBtn = document.getElementById('shaderCancel');
+    const shaderError = document.getElementById('shaderError');
+    let editingLayerId = null;
 
-    const vs = createShader(gl.VERTEX_SHADER, vsSrc);
-    const fs = createShader(gl.FRAGMENT_SHADER, fsSrc);
-    const prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(prog));
+    // Shader compilation functions
+    function createShader(type, src) {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+            const err = gl.getShaderInfoLog(s);
+            gl.deleteShader(s);
+            return { shader: null, error: err };
+        }
+        return { shader: s, error: null };
+    }
 
-    const aPosLoc = gl.getAttribLocation(prog, 'aPos');
-    const uColorLoc = gl.getUniformLocation(prog, 'uColor');
+    function createLayerProgram(layer) {
+        const vs = createShader(gl.VERTEX_SHADER, layer.vertexShader);
+        const fs = createShader(gl.FRAGMENT_SHADER, layer.fragmentShader);
+
+        if (vs.error || fs.error) {
+            const msg = (vs.error || '') + '\n' + (fs.error || '');
+            layer.shaderError = msg;
+            return null;
+        }
+
+        const prog = gl.createProgram();
+        gl.attachShader(prog, vs.shader);
+        gl.attachShader(prog, fs.shader);
+        gl.linkProgram(prog);
+
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+            const err = gl.getProgramInfoLog(prog);
+            gl.deleteProgram(prog);
+            layer.shaderError = err;
+            return null;
+        }
+
+        gl.deleteShader(vs.shader);
+        gl.deleteShader(fs.shader);
+
+        layer.shaderError = null;
+        return prog;
+    }
+
+    // Initialize layer programs
+    function initLayerProgram(layer) {
+        if (!layer.program) {
+            layer.program = createLayerProgram(layer);
+        }
+        return layer.program;
+    }
+
 
     // GPU buffer
     let vbo = gl.createBuffer();
 
-    function updateVertexCount() { vertexCountEl.textContent = `Vertices: ${vertices.length / 2}`; }
+    // Initialize with one default layer
+    createNewLayer();
+    updateLayerUI();
 
-    function createShader(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(s)); gl.deleteShader(s); return null; } return s; }
+    function updateVertexCount() {
+        const currentLayer = getCurrentLayer();
+        vertexCountEl.textContent = `Vertices: ${currentLayer ? currentLayer.vertices.length / 2 : 0}`;
+    }
+
+    // Initialize default program for fallback
+    const defaultVS = createShader(gl.VERTEX_SHADER, DEFAULT_VS);
+    const defaultFS = createShader(gl.FRAGMENT_SHADER, DEFAULT_FS);
+    const defaultProg = gl.createProgram();
+    if (defaultVS.shader && defaultFS.shader) {
+        gl.attachShader(defaultProg, defaultVS.shader);
+        gl.attachShader(defaultProg, defaultFS.shader);
+        gl.linkProgram(defaultProg);
+        if (!gl.getProgramParameter(defaultProg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(defaultProg));
+    }
+
+    function updateLayerUI() {
+        layersContainer.innerHTML = '';
+        layers.forEach(layer => {
+            const div = document.createElement('div');
+            div.className = 'layer-item' + (layer.id === currentLayerId ? ' active' : '');
+            div.innerHTML = `
+                <input type="checkbox" ${layer.visible ? 'checked' : ''} title="Toggle visibility">
+                <input type="text" value="${layer.name}" placeholder="Layer name">
+                <button class="shader-btn" title="Edit shaders">✎ Shader</button>
+                <button class="delete" title="Delete layer">✕</button>
+            `;
+
+            // Click to select layer
+            div.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'BUTTON' && e.target.type !== 'checkbox' && e.target.type !== 'text') {
+                    setCurrentLayer(layer.id);
+                }
+            });
+
+            // Visibility toggle
+            const visCheckbox = div.querySelector('input[type="checkbox"]');
+            visCheckbox.addEventListener('change', () => {
+                layer.visible = visCheckbox.checked;
+            });
+
+            // Layer name edit
+            const nameInput = div.querySelector('input[type="text"]');
+            nameInput.addEventListener('change', () => {
+                layer.name = nameInput.value || `Layer ${layer.id}`;
+                updateLayerUI();
+            });
+            nameInput.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setCurrentLayer(layer.id);
+            });
+
+            // Shader editor button
+            const shaderBtn = div.querySelector('.shader-btn');
+            shaderBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openShaderEditor(layer.id);
+            });
+
+            // Delete button
+            const deleteBtn = div.querySelector('.delete');
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (layers.length > 1) {
+                    deleteLayer(layer.id);
+                } else {
+                    alert('Cannot delete the last layer');
+                }
+            });
+
+            layersContainer.appendChild(div);
+        });
+    }
+
+    function openShaderEditor(layerId) {
+        const layer = layers.find(l => l.id === layerId);
+        if (!layer) return;
+
+        editingLayerId = layerId;
+        shaderLayerName.textContent = layer.name;
+        vertexShaderText.value = layer.vertexShader;
+        fragmentShaderText.value = layer.fragmentShader;
+        shaderError.textContent = '';
+
+        // Show drawer with animation
+        shaderDrawer.classList.add('open');
+
+        // Scroll canvas into view
+        setTimeout(() => {
+            canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+    }
+
+    function closeShaderEditor() {
+        shaderDrawer.classList.remove('open');
+        editingLayerId = null;
+    }
+
+    function applyShaders() {
+        if (!editingLayerId) return;
+        const layer = layers.find(l => l.id === editingLayerId);
+        if (!layer) return;
+
+        layer.vertexShader = vertexShaderText.value;
+        layer.fragmentShader = fragmentShaderText.value;
+        layer.program = null; // Clear cached program so it gets recompiled
+
+        // Try to compile
+        const prog = createLayerProgram(layer);
+        if (prog) {
+            layer.program = prog;
+            shaderError.textContent = 'Shaders applied successfully!';
+            shaderError.style.color = '#00aa00';
+        } else {
+            shaderError.textContent = 'Shader error: ' + layer.shaderError;
+            shaderError.style.color = '#ff0000';
+        }
+    }
+
+    function resetShaders() {
+        const layer = layers.find(l => l.id === editingLayerId);
+        if (!layer) return;
+
+        vertexShaderText.value = DEFAULT_VS;
+        fragmentShaderText.value = DEFAULT_FS;
+        shaderError.textContent = '';
+    }
 
     function resizeCanvasToDisplaySize() {
         const dpr = window.devicePixelRatio || 1;
@@ -64,7 +347,14 @@
             overlay.width = Math.round(canvas.clientWidth * dpr);
             overlay.height = Math.round(canvas.clientHeight * dpr);
             // draw in CSS pixel coordinates by scaling context
-            overlayContenxt.setTransform(dpr, 0, 0, dpr, 0, 0);
+            overlayContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        // keep background image canvas in sync
+        if (bgImageCanvas) {
+            bgImageCanvas.width = Math.round(canvas.clientWidth * dpr);
+            bgImageCanvas.height = Math.round(canvas.clientHeight * dpr);
+            bgImageCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawBackgroundImage();
         }
     }
 
@@ -79,6 +369,37 @@
         return [ndcX, ndcY];
     }
 
+    // Background image handling
+    function drawBackgroundImage() {
+        if (!backgroundImage) {
+            bgImageCtx.clearRect(0, 0, bgImageCanvas.clientWidth, bgImageCanvas.clientHeight);
+            return;
+        }
+        const dpr = window.devicePixelRatio || 1;
+        bgImageCtx.clearRect(0, 0, bgImageCanvas.width / dpr, bgImageCanvas.height / dpr);
+        bgImageCtx.globalAlpha = backgroundOpacity;
+        bgImageCtx.drawImage(backgroundImage, 0, 0, bgImageCanvas.clientWidth, bgImageCanvas.clientHeight);
+        bgImageCtx.globalAlpha = 1.0;
+    }
+
+    function loadBackgroundImage(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                backgroundImage = img;
+                drawBackgroundImage();
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function clearBackgroundImage() {
+        backgroundImage = null;
+        bgImageCtx.clearRect(0, 0, bgImageCanvas.clientWidth, bgImageCanvas.clientHeight);
+    }
+
     // Check if point is far enough from last pushed point
     function isPointFarEnoughFromClient(clientX, clientY) {
         if (lastPush === null) return true;
@@ -88,9 +409,11 @@
         return ((dx * dx + dy * dy) > (MIN_DIST * MIN_DIST));
     }
 
-    // Push point to vertices array and update lastPush
+    // Push point to current layer's vertices array and update lastPush
     function pushPoint(clientX, clientY, ndcX, ndcY) {
-        vertices.push(ndcX, ndcY);
+        const currentLayer = getCurrentLayer();
+        if (!currentLayer) return false;
+        currentLayer.vertices.push(ndcX, ndcY);
         lastPush = { x: clientX, y: clientY };
         updateVertexCount();
         return true;
@@ -110,7 +433,6 @@
         }
     }
 
-
     // Convert NDC to client coordinates
     function ndcToClient(ndx, ndy) {
         const rect = canvas.getBoundingClientRect();
@@ -127,10 +449,12 @@
         return [px, py];
     }
 
-    // Undo / clear / export
+    // Undo / clear functions
     function setLastPushFromLastVertex() {
-        if (vertices.length >= 2) {
-            const nx = vertices[vertices.length - 2], ny = vertices[vertices.length - 1];
+        const currentLayer = getCurrentLayer();
+        if (!currentLayer) return;
+        if (currentLayer.vertices.length >= 2) {
+            const nx = currentLayer.vertices[currentLayer.vertices.length - 2], ny = currentLayer.vertices[currentLayer.vertices.length - 1];
             const c = ndcToClient(nx, ny);
             lastPush = { x: c.x, y: c.y };
         } else {
@@ -138,17 +462,40 @@
         }
     }
 
-    // Undo last point (removes last two entries in vertices)
-    function undoLast() { if (vertices.length >= 2) { vertices.splice(-2, 2); updateVertexCount(); setLastPushFromLastVertex(); } }
+    // Undo last point (removes last two entries in current layer's vertices)
+    function undoLast() {
+        const currentLayer = getCurrentLayer();
+        if (!currentLayer) return;
+        if (currentLayer.vertices.length >= 2) {
+            currentLayer.vertices.splice(-2, 2);
+            updateVertexCount();
+            setLastPushFromLastVertex();
+        }
+    }
 
-    // Clear all vertices
-    function clearAll() { vertices.length = 0; updateVertexCount(); lastPush = null; }
+    // Clear all vertices in current layer
+    function clearAll() {
+        const currentLayer = getCurrentLayer();
+        if (!currentLayer) return;
+        currentLayer.vertices.length = 0;
+        updateVertexCount();
+        lastPush = null;
+    }
 
-    // Export vertices as extended JSON file: { vertices: [[x,y],...], mode: '...', lineWidth: n }
+    // Export vertices as extended JSON file with all layers: { layers: [{name, mode, lineWidth, vertices: [[x,y],...]},...] }
     function exportVerticesJSON() {
-        const arr = [];
-        for (let i = 0; i < vertices.length; i += 2) arr.push([vertices[i], vertices[i + 1]]);
-        const out = { vertices: arr, mode: modeSelection.value, lineWidth: Number(lineWidthInp.value) };
+        const layersData = layers.map(layer => ({
+            id: layer.id,
+            name: layer.name,
+            vertices: layer.vertices.length > 0
+                ? Array.from({ length: layer.vertices.length / 2 }, (_, i) => [layer.vertices[i * 2], layer.vertices[i * 2 + 1]])
+                : [],
+            vertexShader: layer.vertexShader,
+            fragmentShader: layer.fragmentShader,
+            mode: modeSelection.value,
+            lineWidth: Number(lineWidthInp.value)
+        }));
+        const out = { layers: layersData };
         const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'vertices.json'; a.click(); URL.revokeObjectURL(url);
     }
@@ -161,19 +508,59 @@
         }).then(txt => { loadFileContent('defaultVertices.json', txt); }).catch(() => console.log('defaultVertices.json not loaded (missing) — you can press "Load default" or import a file.'));
     }
 
-    // Load file content based on extension. Supports JSON in two forms:
-    // - legacy: array of [x,y]
-    // - extended: { vertices: [[x,y],...], mode: 'TRIANGLE_STRIP', lineWidth: 2 }
+    // Load file content. Supports multiple formats:
+    // - legacy: array of [x,y] (loaded into current layer)
+    // - extended v1: { vertices: [[x,y],...], mode: 'TRIANGLE_STRIP', lineWidth: 2 }
+    // - extended v2: { layers: [{name, vertices: [[x,y],...], mode, lineWidth}, ...] }
     function loadFileContent(name, txt) {
         try {
             const parsed = JSON.parse(txt);
+
+            // New multi-layer format
+            if (parsed && Array.isArray(parsed.layers)) {
+                layers = [];
+                nextLayerId = 1;
+                currentLayerId = null;
+
+                parsed.layers.forEach((layerData) => {
+                    const layer = new Layer(nextLayerId++, layerData.name || `Layer ${nextLayerId}`);
+                    if (Array.isArray(layerData.vertices)) {
+                        layerData.vertices.forEach(p => {
+                            layer.vertices.push(p[0], p[1]);
+                        });
+                    }
+                    // Restore shaders if they exist
+                    if (layerData.vertexShader) {
+                        layer.vertexShader = layerData.vertexShader;
+                    }
+                    if (layerData.fragmentShader) {
+                        layer.fragmentShader = layerData.fragmentShader;
+                    }
+                    layers.push(layer);
+                    if (!currentLayerId) currentLayerId = layer.id;
+                });
+
+                if (parsed.layers.length > 0 && parsed.layers[0].mode) {
+                    try { modeSelection.value = parsed.layers[0].mode; } catch (e) { }
+                }
+                if (parsed.layers.length > 0 && parsed.layers[0].lineWidth) {
+                    lineWidthInp.value = parsed.layers[0].lineWidth;
+                    lineWidthVal.textContent = parsed.layers[0].lineWidth;
+                }
+
+                updateLayerUI();
+                updateVertexCount();
+                console.log('Loaded multi-layer JSON, layers:', layers.length);
+                return;
+            }
+
+            // Old single-layer formats
             let arr = null;
             if (Array.isArray(parsed)) {
                 arr = parsed;
             } else if (parsed && Array.isArray(parsed.vertices)) {
                 arr = parsed.vertices;
                 if (parsed.mode) {
-                    // attempt to set the UI draw mode if valid
                     try { modeSelection.value = parsed.mode; } catch (e) { }
                 }
                 if (parsed.lineWidth) {
@@ -182,11 +569,13 @@
             }
 
             if (arr) {
-                vertices.length = 0;
-                arr.forEach((p) => { vertices.push(p[0], p[1]); });
+                const currentLayer = getCurrentLayer();
+                if (!currentLayer) return;
+                currentLayer.vertices.length = 0;
+                arr.forEach((p) => { currentLayer.vertices.push(p[0], p[1]); });
                 updateVertexCount();
                 setLastPushFromLastVertex();
-                console.log('Loaded JSON vertices, count:', vertices.length / 2);
+                console.log('Loaded single-layer JSON vertices, count:', currentLayer.vertices.length / 2);
                 return;
             }
         } catch (err) {
@@ -196,29 +585,18 @@
         console.warn('Unknown or unsupported file type for', name);
     }
 
-    // Draw function
+    // Draw function - renders all visible layers
     function draw() {
         resizeCanvasToDisplaySize();
         gl.clearColor(...clearColor); gl.clear(gl.COLOR_BUFFER_BIT);
 
-        // Require at least two vertices to draw
-        if (vertices.length < 2) return;
-
-        // Upload vertices to GPU
-        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-        const vertArray = new Float32Array(vertices);
-        gl.bufferData(gl.ARRAY_BUFFER, vertArray, gl.DYNAMIC_DRAW);
-
-        gl.useProgram(prog);
-        gl.enableVertexAttribArray(aPosLoc);
-        gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, 0, 0);
-
-        gl.uniform4fv(uColorLoc, drawColor);
+        // Calculate time in seconds since start
+        const elapsedTime = (Date.now() - startTime) / 1000;
 
         // Set line width
         const lw = Number(lineWidthInp.value) || 1; try { gl.lineWidth(lw); } catch (e) { /* ignore */ }
 
-        // determine draw mode and vertices count
+        // determine draw mode
         const modeVal = modeSelection.value;
         let mode = gl.LINE_STRIP;
         if (modeVal === 'LINES') mode = gl.LINES;
@@ -227,24 +605,74 @@
         else if (modeVal === 'TRIANGLE_STRIP') mode = gl.TRIANGLE_STRIP;
         else if (modeVal === 'TRIANGLE_FAN') mode = gl.TRIANGLE_FAN;
 
-        const vertexCount = vertices.length / 2;
-        gl.drawArrays(mode, 0, vertexCount);
+        // Draw all visible layers
+        layers.forEach(layer => {
+            if (!layer.visible || layer.vertices.length < 2) return;
+
+            // Initialize or get layer program
+            let prog = initLayerProgram(layer);
+            if (!prog) {
+                // Fall back to default program if shader compilation fails
+                prog = defaultProg;
+            }
+
+            gl.useProgram(prog);
+
+            // Get attribute location from this program
+            const aPosLoc = gl.getAttribLocation(prog, 'aPos');
+            if (aPosLoc >= 0) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+                const vertArray = new Float32Array(layer.vertices);
+                gl.bufferData(gl.ARRAY_BUFFER, vertArray, gl.DYNAMIC_DRAW);
+
+                gl.enableVertexAttribArray(aPosLoc);
+                gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, 0, 0);
+            }
+
+            // Set color uniform if it exists
+            const uColorLoc = gl.getUniformLocation(prog, 'uColor');
+            if (uColorLoc !== -1) {
+                gl.uniform4fv(uColorLoc, layer.color);
+            }
+
+            // Set time uniform if it exists
+            const uTimeLoc = gl.getUniformLocation(prog, 'uTime');
+            if (uTimeLoc !== -1) {
+                gl.uniform1f(uTimeLoc, elapsedTime);
+            }
+
+            // Set canvas resolution uniform if it exists
+            const uResolutionLoc = gl.getUniformLocation(prog, 'uResolution');
+            if (uResolutionLoc !== -1) {
+                gl.uniform2f(uResolutionLoc, canvas.width, canvas.height);
+            }
+
+            const vertexCount = layer.vertices.length / 2;
+            gl.drawArrays(mode, 0, vertexCount);
+        });
     }
 
-    // Show markers on overlay canvas (pixel coords)
+    // Show markers on overlay canvas (pixel coords) for current layer only
     function drawOverlay() {
         // overlay sized and scaled in resizeCanvasToDisplaySize; drawing here uses CSS pixels because context is scaled for DPR
         const dpr = window.devicePixelRatio || 1;
-        overlayContenxt.clearRect(0, 0, overlay.width / dpr, overlay.height / dpr);
-        overlayContenxt.font = '12px sans-serif';
+        overlayContext.clearRect(0, 0, overlay.width / dpr, overlay.height / dpr);
 
-        for (let i = 0; i < vertices.length; i += 2) {
-            const ndx = vertices[i], ndy = vertices[i + 1];
+        // Only draw overlay if enabled
+        if (!showOverlay) return;
+
+        overlayContext.font = '12px sans-serif';
+
+        const currentLayer = getCurrentLayer();
+        if (!currentLayer || !currentLayer.visible) return;
+
+        for (let i = 0; i < currentLayer.vertices.length; i += 2) {
+            const ndx = currentLayer.vertices[i], ndy = currentLayer.vertices[i + 1];
             const [px, py] = ndcToPixel(ndx, ndy);
-            let color = '#364794af';
+            let color = 'rgba(54, 71, 148, 0.68)';
             if (i === 0) color = '#24d64aff'; // first point = green
-            else if (i === vertices.length - 2) color = '#f11f1fff'; // last point = red
-            overlayContenxt.beginPath(); overlayContenxt.fillStyle = color; overlayContenxt.arc(px, py, 2, 0, Math.PI * 2); overlayContenxt.fill();
+            else if (i === currentLayer.vertices.length - 2) color = '#f11f1fff'; // last point = red
+            overlayContext.beginPath(); overlayContext.fillStyle = color; overlayContext.arc(px, py, 2, 0, Math.PI * 2); overlayContext.fill();
         }
     }
 
@@ -262,6 +690,40 @@
     // Init Event listeners.
     lineWidthInp.addEventListener('input', () => { lineWidthVal.textContent = lineWidthInp.value; });
 
+    // Background image controls
+    bgImageInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file) loadBackgroundImage(file);
+        bgImageInput.value = '';
+    });
+
+    clearBgImageBtn.addEventListener('click', clearBackgroundImage);
+
+    bgOpacityInput.addEventListener('input', () => {
+        backgroundOpacity = Number(bgOpacityInput.value) / 100;
+        bgOpacityVal.textContent = bgOpacityInput.value + '%';
+        drawBackgroundImage();
+    });
+
+    // Overlay toggle
+    showOverlayCheckbox.addEventListener('change', () => {
+        showOverlay = showOverlayCheckbox.checked;
+    });
+
+    // Shader editor drawer
+    shaderDrawerClose.addEventListener('click', closeShaderEditor);
+    shaderCancelBtn.addEventListener('click', closeShaderEditor);
+    shaderApplyBtn.addEventListener('click', applyShaders);
+    shaderResetBtn.addEventListener('click', resetShaders);
+
+    // Layer management
+    addLayerBtn.addEventListener('click', () => {
+        const newLayer = createNewLayer();
+        setCurrentLayer(newLayer.id);
+        updateLayerUI();
+        lastPush = null;
+    });
+
     // pointerdown to add point, if ctrl is held start pointer capture for continuous drawing
     canvas.addEventListener('pointerdown', (e) => {
         if (e.button === 2) return; // ignore right-click
@@ -277,7 +739,7 @@
     canvas.addEventListener('pointermove', (e) => {
         // continuous adding only if drawing mode is on AND Ctrl remains pressed
         if (!isDrawing || !e.ctrlKey) return;
-        addPointFromEvent(e, { onlyIfFarEnough: true });
+        addPointFromEvent(e, true);
     });
 
     // stop drawing on pointerup

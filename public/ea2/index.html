@@ -24,8 +24,17 @@
 
             <div id="canvas-wrap">
                 <canvas id="background-canvas" class="background" width="720" height="480"></canvas>
+                <canvas id="background-image-canvas" class="background-image" width="720" height="480"
+                    aria-hidden="true"></canvas>
                 <canvas id="overlay-canvas" class="overlay" width="720" height="480" aria-hidden="true"></canvas>
                 <aside id="controls">
+                    <div class="row">
+                        <label for="bgImage">Background Image:</label>
+                        <input id="bgImage" type="file" accept="image/*" style="display:inline-block">
+                        <button id="clearBgImage">Clear BG</button>
+                        <input id="bgOpacity" type="range" min="0" max="100" value="50" title="Background opacity">
+                        <span id="bgOpacityVal">50%</span>
+                    </div>
                     <div class="row">
                         <label for="mode">Draw-Mode:</label>
                         <select id="mode">
@@ -41,6 +50,19 @@
                         <label for="lineWidth">Line width:</label>
                         <input id="lineWidth" type="range" min="1" max="10" value="1">
                         <span id="lineWidthVal">1</span>
+                    </div>
+                    <div class="row">
+                        <label for="showOverlay">Show Vertices:</label>
+                        <input id="showOverlay" type="checkbox" checked>
+                    </div>
+                    <div class="row">
+                        <strong>Layers:</strong>
+                    </div>
+                    <div id="layers-container" class="layers-list">
+                        <!-- layers will be added here dynamically -->
+                    </div>
+                    <div class="row">
+                        <button id="addLayer">+ Add Layer</button>
                     </div>
                     <div class="row buttons">
                         <button id="undo">Undo</button>
@@ -58,6 +80,30 @@
             <p id="instructions">Klicken, um Punkte hinzuzufügen. Halte Strg/Ctrl, und ziehe, um kontinuierlich Punkte
                 zu setzen.
                 Rechtsklick entfernt den letzten Punkt (Undo).</p>
+
+            <!-- Shader Editor Drawer (Bottom Panel) -->
+            <div id="shaderDrawer" class="shader-drawer">
+                <div class="shader-drawer-header">
+                    <h2>Shader Editor - <span id="shaderLayerName">Layer</span></h2>
+                    <button id="shaderDrawerClose" class="shader-drawer-close">&times;</button>
+                </div>
+                <div class="shader-drawer-content">
+                    <div class="shader-editor-column">
+                        <h3>Vertex Shader</h3>
+                        <textarea id="vertexShaderText" class="shader-textarea" spellcheck="false"></textarea>
+                    </div>
+                    <div class="shader-editor-column">
+                        <h3>Fragment Shader</h3>
+                        <textarea id="fragmentShaderText" class="shader-textarea" spellcheck="false"></textarea>
+                    </div>
+                    <div class="shader-error" id="shaderError"></div>
+                </div>
+                <div class="shader-drawer-footer">
+                    <button id="shaderApply" class="btn-primary">Apply Shaders</button>
+                    <button id="shaderReset" class="btn-secondary">Reset to Default</button>
+                    <button id="shaderCancel" class="btn-secondary">Close</button>
+                </div>
+            </div>
         </section>
 
         <section id="doc">
