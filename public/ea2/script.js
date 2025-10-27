@@ -498,7 +498,7 @@ void main(){
                         layer.fragmentShader = layerData.fragmentShader;
                     }
                     layers.push(layer);
-                    if (!currentLayerId) currentLayerId = layer.id;
+                    currentLayerId = layer.id;
                 });
 
                 if (parsed.layers.length > 0 && parsed.layers[0].mode) {

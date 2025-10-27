@@ -7649,8 +7649,22 @@
           0.2058430989583333
         ]
       ],
-      "vertexShader": "#version 300 es\nprecision mediump float;\nin vec2 aPos;\nuniform float uTime;\n\nvoid main(){\n    vec2 pos = aPos;\n    // Deform vertices in a wave pattern\n    pos.y += sin(pos.x * 1.0 + uTime) * 0.02;\n    pos.x += cos(pos.y * 1.0 + uTime) * 0.02;\n    gl_Position = vec4(pos, 0.0, 1.0);\n}",
-      "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nout vec4 outColor;\n\nvoid main(){\n    // Wave pattern\n    float wave = sin(gl_FragCoord.x * 0.05) * 0.5 + 0.5;\n    float brightness = mix(0.8, 1.0, wave);\n    outColor = vec4(uColor.rgb * brightness, uColor.a);\n}",
+      "vertexShader": "#version 300 es\nprecision mediump float;\nin vec2 aPos;\nuniform float uTime;\n\nvoid main(){\n    vec2 pos = aPos;\n    \n    // Move across 4 times per 60 seconds (15 seconds per crossing)\n    float progress = mod(uTime / 15.0, 1.0);  // 0.0 to 1.0 every 15 seconds\n    float xOffset = mix(-2.0, 2.0, progress);  // -2.0 to +2.0\n    \n    pos.x += xOffset;\n\n    // Deform vertices in a wave pattern\n    pos.y += sin(pos.x * 1.0 + uTime) * 0.02;\n    pos.x += cos(pos.y * 1.0 + uTime) * 0.02;\n    \n    gl_Position = vec4(pos, 0.0, 1.0);\n}",
+      "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nout vec4 outColor;\n\nvoid main(){\n    // Wave pattern\n    float wave = sin(gl_FragCoord.x * 0.05) * 0.8 + 0.2;\n    float brightness = mix(0.3, 0.7, wave);\n    outColor = vec4(uColor.rgb * brightness, uColor.a);\n}",
+      "mode": "LINE_STRIP",
+      "lineWidth": 1
+    },
+    {
+      "id": 2,
+      "name": "Layer 3",
+      "vertices": [
+        [
+          -0.0,
+          0.0
+        ]
+      ],
+      "vertexShader": "#version 300 es\nin vec2 aPos;\nvoid main(){\n    gl_Position = vec4(aPos, 0.0, 1.0);\n}",
+      "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nout vec4 outColor;\nvoid main(){\n    outColor = uColor;\n}",
       "mode": "LINE_STRIP",
       "lineWidth": 1
     }
