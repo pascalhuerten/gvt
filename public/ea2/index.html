@@ -21,6 +21,9 @@
             <h2 id="viewer-heading">WebGL Canvas (interaktiv)</h2>
 
             <p>Zeichne mit der Maus auf dem Canvas.</p>
+            <p id="instructions">Klicken, um Punkte hinzuzufügen. Halte Strg/Ctrl, und ziehe, um kontinuierlich Punkte
+                zu setzen.
+                Rechtsklick entfernt den letzten Punkt (Undo).</p>
 
             <div id="canvas-wrap">
                 <canvas id="background-canvas" class="background" width="720" height="480"></canvas>
@@ -53,7 +56,7 @@
                     </div>
                     <div class="row">
                         <label for="showOverlay">Show Vertices:</label>
-                        <input id="showOverlay" type="checkbox" checked>
+                        <input id="showOverlay" type="checkbox">
                     </div>
                     <div class="row">
                         <strong>Layers:</strong>
@@ -77,9 +80,6 @@
                     </div>
                 </aside>
             </div>
-            <p id="instructions">Klicken, um Punkte hinzuzufügen. Halte Strg/Ctrl, und ziehe, um kontinuierlich Punkte
-                zu setzen.
-                Rechtsklick entfernt den letzten Punkt (Undo).</p>
 
             <!-- Shader Editor Drawer (Bottom Panel) -->
             <div id="shaderDrawer" class="shader-drawer">

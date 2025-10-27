@@ -28,25 +28,60 @@ void main(){
         [0.1, 0.7, 0.7, 1.0],    // cyan
     ];
 
-    // Helper functions for color conversion
-    function rgbaToHex(rgba) {
-        const r = Math.round(rgba[0] * 255).toString(16).padStart(2, '0');
-        const g = Math.round(rgba[1] * 255).toString(16).padStart(2, '0');
-        const b = Math.round(rgba[2] * 255).toString(16).padStart(2, '0');
-        return '#' + r + g + b;
-    }
-
-    function hexToRgba(hex) {
-        const r = parseInt(hex.slice(1, 3), 16) / 255;
-        const g = parseInt(hex.slice(3, 5), 16) / 255;
-        const b = parseInt(hex.slice(5, 7), 16) / 255;
-        return [r, g, b, 1.0];
-    }
-
     // Layer system
     let layers = [];
     let currentLayerId = null;
     let nextLayerId = 1;
+    let editingLayerId = null;
+
+    // Background image
+    let backgroundImage = null;
+    let backgroundOpacity = 0.5;
+
+    // Overlay visibility
+    let showOverlay = false;
+
+    // Drawing state
+    let isDrawing = false;
+    const MIN_DIST = 12; // minimum pixel distance between pushed points
+    let lastPush = null; // last pushed point in client coordinates {x,y}
+    let startTime = Date.now(); // for uTime uniform
+
+    // Canvas and WebGL context
+    const canvas = document.getElementById('background-canvas');
+    const gl = canvas.getContext('webgl2');
+    if (!gl) { console.error('WebGL2 not available'); return; }
+
+    // UI elements
+    const bgImageCanvas = document.getElementById('background-image-canvas');
+    const bgImageCtx = bgImageCanvas.getContext('2d');
+    const modeSelection = document.getElementById('mode');
+    const lineWidthInp = document.getElementById('lineWidth');
+    const lineWidthVal = document.getElementById('lineWidthVal');
+    const undoBtn = document.getElementById('undo');
+    const clearBtn = document.getElementById('clear');
+    const exportBtn = document.getElementById('export');
+    const fileInput = document.getElementById('fileInput');
+    const loadDefaultBtn = document.getElementById('loadDefault');
+    const overlay = document.getElementById('overlay-canvas');
+    const overlayContext = overlay.getContext('2d');
+    const vertexCountEl = document.getElementById('vertex-count');
+    const bgImageInput = document.getElementById('bgImage');
+    const bgOpacityInput = document.getElementById('bgOpacity');
+    const bgOpacityVal = document.getElementById('bgOpacityVal');
+    const clearBgImageBtn = document.getElementById('clearBgImage');
+    const layersContainer = document.getElementById('layers-container');
+    const addLayerBtn = document.getElementById('addLayer');
+    const showOverlayCheckbox = document.getElementById('showOverlay');
+    const shaderDrawer = document.getElementById('shaderDrawer');
+    const shaderDrawerClose = document.getElementById('shaderDrawerClose');
+    const shaderLayerName = document.getElementById('shaderLayerName');
+    const vertexShaderText = document.getElementById('vertexShaderText');
+    const fragmentShaderText = document.getElementById('fragmentShaderText');
+    const shaderApplyBtn = document.getElementById('shaderApply');
+    const shaderResetBtn = document.getElementById('shaderReset');
+    const shaderCancelBtn = document.getElementById('shaderCancel');
+    const shaderError = document.getElementById('shaderError');
 
     class Layer {
         constructor(id, name) {
@@ -92,63 +127,6 @@ void main(){
         }
     }
 
-    // Background image
-    let backgroundImage = null;
-    let backgroundOpacity = 0.5;
-
-    // Overlay visibility
-    let showOverlay = true;
-
-    // Drawing state
-    let isDrawing = false;
-    const MIN_DIST = 12; // minimum pixel distance between pushed points
-    let lastPush = null; // last pushed point in client coordinates {x,y}
-    let startTime = Date.now(); // for uTime uniform
-
-    // Shaders (simple pass-through for 2D positions)
-    const vsSrc = `#version 300 es
-    in vec2 aPos;
-    void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }
-    `;
-    const fsSrc = `#version 300 es
-    precision mediump float; uniform vec4 uColor; out vec4 outColor; void main(){ outColor = uColor; }
-    `;
-
-    // UI elements
-    const canvas = document.getElementById('background-canvas');
-    const bgImageCanvas = document.getElementById('background-image-canvas');
-    const gl = canvas.getContext('webgl2');
-    if (!gl) { console.error('WebGL2 not available'); return; }
-    const bgImageCtx = bgImageCanvas.getContext('2d');
-    const modeSelection = document.getElementById('mode');
-    const lineWidthInp = document.getElementById('lineWidth');
-    const lineWidthVal = document.getElementById('lineWidthVal');
-    const undoBtn = document.getElementById('undo');
-    const clearBtn = document.getElementById('clear');
-    const exportBtn = document.getElementById('export');
-    const fileInput = document.getElementById('fileInput');
-    const loadDefaultBtn = document.getElementById('loadDefault');
-    const overlay = document.getElementById('overlay-canvas');
-    const overlayContext = overlay.getContext('2d');
-    const vertexCountEl = document.getElementById('vertex-count');
-    const bgImageInput = document.getElementById('bgImage');
-    const bgOpacityInput = document.getElementById('bgOpacity');
-    const bgOpacityVal = document.getElementById('bgOpacityVal');
-    const clearBgImageBtn = document.getElementById('clearBgImage');
-    const layersContainer = document.getElementById('layers-container');
-    const addLayerBtn = document.getElementById('addLayer');
-    const showOverlayCheckbox = document.getElementById('showOverlay');
-    const shaderDrawer = document.getElementById('shaderDrawer');
-    const shaderDrawerClose = document.getElementById('shaderDrawerClose');
-    const shaderLayerName = document.getElementById('shaderLayerName');
-    const vertexShaderText = document.getElementById('vertexShaderText');
-    const fragmentShaderText = document.getElementById('fragmentShaderText');
-    const shaderApplyBtn = document.getElementById('shaderApply');
-    const shaderResetBtn = document.getElementById('shaderReset');
-    const shaderCancelBtn = document.getElementById('shaderCancel');
-    const shaderError = document.getElementById('shaderError');
-    let editingLayerId = null;
-
     // Shader compilation functions
     function createShader(type, src) {
         const s = gl.createShader(type);
@@ -184,9 +162,11 @@ void main(){
             return null;
         }
 
+        // Clean up shaders after linking
         gl.deleteShader(vs.shader);
         gl.deleteShader(fs.shader);
 
+        // Clear previous error
         layer.shaderError = null;
         return prog;
     }
@@ -199,28 +179,39 @@ void main(){
         return layer.program;
     }
 
+    function applyShaders() {
+        if (!editingLayerId) return;
+        const layer = layers.find(l => l.id === editingLayerId);
+        if (!layer) return;
 
-    // GPU buffer
-    let vbo = gl.createBuffer();
+        layer.vertexShader = vertexShaderText.value;
+        layer.fragmentShader = fragmentShaderText.value;
+        layer.program = null; // Clear cached program so it gets recompiled
 
-    // Initialize with one default layer
-    createNewLayer();
-    updateLayerUI();
+        // Try to compile
+        const prog = createLayerProgram(layer);
+        if (prog) {
+            layer.program = prog;
+            shaderError.textContent = 'Shaders applied successfully!';
+            shaderError.style.color = '#00aa00';
+        } else {
+            shaderError.textContent = 'Shader error: ' + layer.shaderError;
+            shaderError.style.color = '#ff0000';
+        }
+    }
+
+    function resetShaders() {
+        const layer = layers.find(l => l.id === editingLayerId);
+        if (!layer) return;
+
+        vertexShaderText.value = DEFAULT_VS;
+        fragmentShaderText.value = DEFAULT_FS;
+        shaderError.textContent = '';
+    }
 
     function updateVertexCount() {
         const currentLayer = getCurrentLayer();
         vertexCountEl.textContent = `Vertices: ${currentLayer ? currentLayer.vertices.length / 2 : 0}`;
-    }
-
-    // Initialize default program for fallback
-    const defaultVS = createShader(gl.VERTEX_SHADER, DEFAULT_VS);
-    const defaultFS = createShader(gl.FRAGMENT_SHADER, DEFAULT_FS);
-    const defaultProg = gl.createProgram();
-    if (defaultVS.shader && defaultFS.shader) {
-        gl.attachShader(defaultProg, defaultVS.shader);
-        gl.attachShader(defaultProg, defaultFS.shader);
-        gl.linkProgram(defaultProg);
-        if (!gl.getProgramParameter(defaultProg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(defaultProg));
     }
 
     function updateLayerUI() {
@@ -305,36 +296,6 @@ void main(){
         editingLayerId = null;
     }
 
-    function applyShaders() {
-        if (!editingLayerId) return;
-        const layer = layers.find(l => l.id === editingLayerId);
-        if (!layer) return;
-
-        layer.vertexShader = vertexShaderText.value;
-        layer.fragmentShader = fragmentShaderText.value;
-        layer.program = null; // Clear cached program so it gets recompiled
-
-        // Try to compile
-        const prog = createLayerProgram(layer);
-        if (prog) {
-            layer.program = prog;
-            shaderError.textContent = 'Shaders applied successfully!';
-            shaderError.style.color = '#00aa00';
-        } else {
-            shaderError.textContent = 'Shader error: ' + layer.shaderError;
-            shaderError.style.color = '#ff0000';
-        }
-    }
-
-    function resetShaders() {
-        const layer = layers.find(l => l.id === editingLayerId);
-        if (!layer) return;
-
-        vertexShaderText.value = DEFAULT_VS;
-        fragmentShaderText.value = DEFAULT_FS;
-        shaderError.textContent = '';
-    }
-
     function resizeCanvasToDisplaySize() {
         const dpr = window.devicePixelRatio || 1;
         const width = Math.round(canvas.clientWidth * dpr);
@@ -367,6 +328,22 @@ void main(){
         const ndcX = x * 2 - 1;
         const ndcY = (1 - y) * 2 - 1;
         return [ndcX, ndcY];
+    }
+
+    // Convert NDC to client coordinates
+    function ndcToClient(ndx, ndy) {
+        const rect = canvas.getBoundingClientRect();
+        const cx = rect.left + (ndx * 0.5 + 0.5) * rect.width;
+        const cy = rect.top + (1 - (ndy * 0.5 + 0.5)) * rect.height;
+        return { x: cx, y: cy };
+    }
+
+    // Convert NDC to pixel coordinates in overlay
+    function ndcToPixel(x, y) {
+        const rect = canvas.getBoundingClientRect();
+        const px = (x * 0.5 + 0.5) * rect.width;
+        const py = (1 - (y * 0.5 + 0.5)) * rect.height;
+        return [px, py];
     }
 
     // Background image handling
@@ -431,22 +408,6 @@ void main(){
         } else {
             return false;
         }
-    }
-
-    // Convert NDC to client coordinates
-    function ndcToClient(ndx, ndy) {
-        const rect = canvas.getBoundingClientRect();
-        const cx = rect.left + (ndx * 0.5 + 0.5) * rect.width;
-        const cy = rect.top + (1 - (ndy * 0.5 + 0.5)) * rect.height;
-        return { x: cx, y: cy };
-    }
-
-    // Convert NDC to pixel coordinates in overlay
-    function ndcToPixel(x, y) {
-        const rect = canvas.getBoundingClientRect();
-        const px = (x * 0.5 + 0.5) * rect.width;
-        const py = (1 - (y * 0.5 + 0.5)) * rect.height;
-        return [px, py];
     }
 
     // Undo / clear functions
@@ -685,6 +646,24 @@ void main(){
     function overlayLoop() {
         drawOverlay();
         requestAnimationFrame(overlayLoop);
+    }
+
+    // GPU buffer
+    let vbo = gl.createBuffer();
+
+    // Initialize with one default layer
+    createNewLayer();
+    updateLayerUI();
+
+    // Initialize default program for fallback
+    const defaultVS = createShader(gl.VERTEX_SHADER, DEFAULT_VS);
+    const defaultFS = createShader(gl.FRAGMENT_SHADER, DEFAULT_FS);
+    const defaultProg = gl.createProgram();
+    if (defaultVS.shader && defaultFS.shader) {
+        gl.attachShader(defaultProg, defaultVS.shader);
+        gl.attachShader(defaultProg, defaultFS.shader);
+        gl.linkProgram(defaultProg);
+        if (!gl.getProgramParameter(defaultProg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(defaultProg));
     }
 
     // Init Event listeners.
