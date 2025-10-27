@@ -552,7 +552,8 @@ void main(){
         gl.clearColor(...clearColor); gl.clear(gl.COLOR_BUFFER_BIT);
 
         // Calculate time in seconds since start
-        const elapsedTime = (Date.now() - startTime) / 1000;
+        const rawTime = (Date.now() - startTime) / 1000;
+        const elapsedTime = rawTime % 60.0; // Reset every 60 seconds to avoid performance issues
 
         // Set line width
         const lw = Number(lineWidthInp.value) || 1; try { gl.lineWidth(lw); } catch (e) { /* ignore */ }
