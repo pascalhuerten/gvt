@@ -18,12 +18,8 @@
         <h1>EA2 - 2D Geometrie aus Linien - Pascal Hürten</h1>
 
         <section id="viewer" aria-labelledby="viewer-heading">
-            <h2 id="viewer-heading">WebGL Canvas (interaktiv)</h2>
+            <h2 id="viewer-heading">WebGL Drawing Canvas</h2>
 
-            <p>Zeichne mit der Maus auf dem Canvas.</p>
-            <p id="instructions">Klicken, um Punkte hinzuzufügen. Halte Strg/Ctrl, und ziehe, um kontinuierlich Punkte
-                zu setzen.
-                Rechtsklick entfernt den letzten Punkt (Undo).</p>
 
             <div id="canvas-wrap">
                 <canvas id="background-canvas" class="background" width="720" height="480"></canvas>
@@ -108,6 +104,22 @@
 
         <section id="doc">
             <h2>Quellen & Hinweise</h2>
+
+            <h3>Anleitung zur Nutzung:</h3>
+            <ol>
+                <li><strong>Zeichnen:</strong> Klicke auf das Canvas, um Punkte hinzuzufügen</li>
+                <li><strong>Kontinuierliches Zeichnen:</strong> Halte Strg/Ctrl und ziehe, um mehrere Punkte zu
+                    setzen</li>
+                <li><strong>Rückgängig:</strong> Rechtsklick entfernt den letzten Punkt</li>
+                <li><strong>Layer verwalten:</strong> Erstelle neue Layer mit "+ Add Layer" und wechsle zwischen
+                    ihnen</li>
+                <li><strong>Draw-Mode:</strong> Wähle verschiedene Rendering-Modi (LINE_STRIP, TRIANGLES, etc.)</li>
+                <li><strong>Shader bearbeiten:</strong> Klicke auf "✎ Shader" bei einem Layer für erweiterte Effekte
+                </li>
+                <li><strong>Export/Import:</strong> Speichere deine Arbeit oder lade Vorlagen</li>
+            </ol>
+
+            <h3>Referenzen:</h3>
             <ul>
                 <li>Wal wurde von diesem Foto abgepaust: <a href="https://jooinn.com/img/get"
                         target="_blank">https://jooinn.com/img/get</a></li>
