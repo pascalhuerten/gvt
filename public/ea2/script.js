@@ -702,6 +702,11 @@ void main(){
         uTime = elapsedTime % period; // Reset every period seconds to avoid performance issues
         updateTimeDisplay();
 
+        // Backface culling.
+        gl.frontFace(gl.CCW);
+        gl.enable(gl.CULL_FACE);
+        gl.cullFace(gl.BACK);
+
         // Draw all visible layers
         layers.forEach(layer => {
             if (!layer.visible || layer.vertices.length < 2) return;
