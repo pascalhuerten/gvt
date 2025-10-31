@@ -58,10 +58,6 @@ main {
     gap: 6px;
 }
 
-#controls label {
-    min-width: 70px;
-}
-
 #controls select,
 #controls input[type="range"] {
     flex: 1;

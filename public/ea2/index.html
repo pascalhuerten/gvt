@@ -28,13 +28,6 @@
                 <canvas id="overlay-canvas" class="overlay" width="720" height="480" aria-hidden="true"></canvas>
                 <aside id="controls">
                     <div class="row">
-                        <label for="bgImage">Background Image:</label>
-                        <input id="bgImage" type="file" accept="image/*" style="display:inline-block">
-                        <button id="clearBgImage">Clear BG</button>
-                        <input id="bgOpacity" type="range" min="0" max="100" value="50" title="Background opacity">
-                        <span id="bgOpacityVal">50%</span>
-                    </div>
-                    <div class="row">
                         <label for="mode">Draw-Mode:</label>
                         <select id="mode">
                             <option value="LINES">LINES</option>
@@ -44,15 +37,11 @@
                             <option value="TRIANGLE_STRIP">TRIANGLE_STRIP</option>
                             <option value="TRIANGLE_FAN">TRIANGLE_FAN</option>
                         </select>
-                    </div>
-                    <div class="row">
                         <label for="lineWidth">Line width:</label>
                         <input id="lineWidth" type="range" min="1" max="10" value="1">
                         <span id="lineWidthVal">1</span>
-                    </div>
-                    <div class="row">
-                        <label for="showOverlay">Show Vertices:</label>
-                        <input id="showOverlay" type="checkbox">
+                        <button id="undo">Undo</button>
+                        <button id="clear">Clear</button>
                     </div>
                     <div class="row">
                         <strong>Layers:</strong>
@@ -62,17 +51,60 @@
                     </div>
                     <div class="row">
                         <button id="addLayer">+ Add Layer</button>
+                        <small id="vertex-count" class="justify-self-end">Vertices: 0</small>
                     </div>
-                    <div class="row buttons">
-                        <button id="undo">Undo</button>
-                        <button id="clear">Clear</button>
-                        <button id="export">Export vertices</button>
-                        <label for="fileInput">Import vertices:</label>
-                        <input id="fileInput" type="file" accept=".obj,.json" style="display:inline-block">
+                    <hr>
+                    <div class="row">
+                        <label for="showOverlay">Show Vertices:</label>
+                        <input id="showOverlay" type="checkbox">
+                    </div>
+                    <div class="row">
+                        <label for="snapToGrid">Snap to Grid:</label>
+                        <input id="snapToGrid" type="checkbox">
+                        <label for="gridSize">Grid Size:</label>
+                        <input id="gridSize" type="range" min="10" max="100" value="20">
+                        <span id="gridSizeVal">20</span>
+                    </div>
+                    <div class="row">
+                        <label for="colorMode">Color Mode:</label>
+                        <input id="colorMode" type="checkbox">
+                        <label for="vertexColor">Vertex Color:</label>
+                        <input id="vertexColor" type="color" value="#ff0000">
+                        <label for="colorRadius">Brush Size:</label>
+                        <input id="colorRadius" type="range" min="5" max="50" value="20">
+                        <span id="colorRadiusVal">20px</span>
+                    </div>
+                    <div class="row">
+                        <span id="colorModeHelp" style="font-size: 0.8em; color: #666;">Click & drag to color vertices
+                            in area</span>
+                    </div>
+                    <div class="row">
+                        <strong>Animation:</strong>
+                        <button id="playPauseBtn">▶️ Play</button>
+                        <button id="resetTimeBtn">🔄 Reset</button>
+                    </div>
+                    <div class="row" style="flex: 1">
+                        <label for="periodInput">Period (s):</label>
+                        <input id="periodInput" type="number" min="1" max="300" value="60" step="1">
+                        <label for="timeSlider">Time:</label>
+                        <input id="timeSlider" type="range" min="0" max="100" value="0">
+                        <span id="timeVal">0.00s</span>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <label for=" bgImage">Background Image:</label>
+                        <input id="bgImage" type="file" accept="image/*" style="display:inline-block">
+                        <input id="bgOpacity" type="range" min="0" max="100" value="50" title="Background opacity">
+                        <span id="bgOpacityVal">50%</span>
+                        <button id="clearBgImage">Clear BG</button>
+                    </div>
+                    <div class="row buttons" style="justify-content: space-between;">
+                        <div class="row buttons">
+                            <label for="fileInput">Import vertices:</label>
+                            <input id="fileInput" type="file" accept=".obj,.json" style="display:inline-block">
+                        </div>
                         <button id="loadDefault">Load default</button>
-                    </div>
-                    <div class="row small">
-                        <small id="vertex-count">Vertices: 0</small>
+                        <button id="export">Export vertices</button>
                     </div>
                 </aside>
             </div>
@@ -114,6 +146,11 @@
                 <li><strong>Layer verwalten:</strong> Erstelle neue Layer mit "+ Add Layer" und wechsle zwischen
                     ihnen</li>
                 <li><strong>Draw-Mode:</strong> Wähle verschiedene Rendering-Modi (LINE_STRIP, TRIANGLES, etc.)</li>
+                <li><strong>Color Mode:</strong> Aktiviere den Color Mode, wähle eine Farbe und klicke auf Vertices um
+                    sie einzufärben</li>
+                <li><strong>Animation:</strong> Steuere die Zeit-Animation mit Play/Pause, Time-Slider und
+                    Period-Einstellung</li>
+                <li><strong>Grid-Snap:</strong> Aktiviere Raster-Einrasten für präzises Zeichnen</li>
                 <li><strong>Shader bearbeiten:</strong> Klicke auf "✎ Shader" bei einem Layer für erweiterte Effekte
                 </li>
                 <li><strong>Export/Import:</strong> Speichere deine Arbeit oder lade Vorlagen</li>
