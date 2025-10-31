@@ -60,6 +60,12 @@ void main(){
     let snapToGrid = false;
     let gridSize = 20; // pixels
 
+    // Vertex snap functionality (snap to nearest existing vertex when 'S' key is held)
+    let snapToVertex = false;
+    const VERTEX_SNAP_RADIUS_NDC = 0.15; // NDC space - max distance to snap from
+    let snappedVertexNdc = null; // Stores the NDC position of the vertex being snapped to
+    let lastMouseNdc = null; // Stores the current mouse position in NDC space
+
     // Color mode functionality
     let colorMode = false;
     let selectedColor = [1.0, 0.0, 0.0]; // Default red
@@ -463,7 +469,16 @@ void main(){
     function addPointFromEvent(e, onlyIfFarEnough = false) {
         const clientX = e.clientX;
         const clientY = e.clientY;
-        const [ndx, ndy] = eventToNDC(e);
+        let [ndx, ndy] = eventToNDC(e);
+
+        // If 'S' key is held, snap to nearest existing vertex in NDC space
+        if (snapToVertex) {
+            const snappedNdc = findNearestVertex(ndx, ndy);
+            if (snappedNdc) {
+                [ndx, ndy] = snappedNdc;
+            }
+        }
+
         // If onlyIfFarEnough is true, check distance from last pushed point
         // else always push
         if (!onlyIfFarEnough || isPointFarEnoughFromClient(clientX, clientY)) {
@@ -483,30 +498,31 @@ void main(){
         ] : [1, 0, 0];
     }
 
-    function findNearestVertex(clientX, clientY) {
-        const currentLayer = getCurrentLayer();
-        if (!currentLayer || currentLayer.vertices.length === 0) return -1;
-
-        let nearestIndex = -1;
+    // Find nearest vertex across all layers in NDC space (for vertex snapping with 'S' key)
+    function findNearestVertex(ndcX, ndcY, maxRadius = VERTEX_SNAP_RADIUS_NDC) {
+        let nearestNdc = null;
         let nearestDistance = Infinity;
+        let currentLayer = getCurrentLayer();
+
+        if (!currentLayer || currentLayer.vertices.length === 0) return null;
 
         for (let i = 0; i < currentLayer.vertices.length; i += 2) {
-            const ndcX = currentLayer.vertices[i];
-            const ndcY = currentLayer.vertices[i + 1];
-            const [px, py] = ndcToPixel(ndcX, ndcY);
+            const vertexNdcX = currentLayer.vertices[i];
+            const vertexNdcY = currentLayer.vertices[i + 1];
 
-            const dx = clientX - px;
-            const dy = clientY - py;
+            const dx = ndcX - vertexNdcX;
+            const dy = ndcY - vertexNdcY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < VERTEX_SELECT_RADIUS && distance < nearestDistance) {
+            if (distance < maxRadius && distance < nearestDistance) {
                 nearestDistance = distance;
-                nearestIndex = i / 2; // vertex index (not array index)
+                nearestNdc = [vertexNdcX, vertexNdcY];
             }
         }
 
-        return nearestIndex;
+        return nearestNdc;
     }
+
 
     function findVerticesInArea(clientX, clientY, radius) {
         const currentLayer = getCurrentLayer();
@@ -826,6 +842,31 @@ void main(){
             overlayContext.setLineDash([]);
         }
 
+        // Draw vertex snapping feedback if 'S' key is held
+        if (snapToVertex && snappedVertexNdc) {
+            const [px, py] = ndcToPixel(snappedVertexNdc[0], snappedVertexNdc[1]);
+            overlayContext.strokeStyle = '#00ff00';
+            overlayContext.lineWidth = 3;
+            overlayContext.setLineDash([5, 5]);
+            overlayContext.beginPath();
+            overlayContext.arc(px, py, 12, 0, Math.PI * 2);
+            overlayContext.stroke();
+            overlayContext.setLineDash([]);
+
+            // Draw a line from the snapped vertex to cursor
+            if (lastMouseNdc) {
+                const [cursorPx, cursorPy] = ndcToPixel(lastMouseNdc[0], lastMouseNdc[1]);
+                overlayContext.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+                overlayContext.lineWidth = 1;
+                overlayContext.setLineDash([2, 2]);
+                overlayContext.beginPath();
+                overlayContext.moveTo(px, py);
+                overlayContext.lineTo(cursorPx, cursorPy);
+                overlayContext.stroke();
+                overlayContext.setLineDash([]);
+            }
+        }
+
         // Only draw overlay if enabled
         if (!showOverlay) return;
 
@@ -996,6 +1037,20 @@ void main(){
         colorRadiusVal.textContent = colorRadiusInput.value + 'px';
     });
 
+    // Keyboard controls for vertex snapping
+    document.addEventListener('keydown', (e) => {
+        if (e.key.toLowerCase() === 's') {
+            snapToVertex = true;
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.key.toLowerCase() === 's') {
+            snapToVertex = false;
+            snappedVertexNdc = null; // Clear snapping feedback
+        }
+    });
+
     // Animation controls
     playPauseBtn.addEventListener('click', togglePlayPause);
     resetTimeBtn.addEventListener('click', resetTime);
@@ -1047,6 +1102,10 @@ void main(){
         const clientX = e.clientX - rect.left;
         const clientY = e.clientY - rect.top;
 
+        // Convert current mouse position to NDC for vertex snapping
+        const [ndcX, ndcY] = eventToNDC(e);
+        lastMouseNdc = [ndcX, ndcY];
+
         // Update cursor position for color mode
         if (colorMode) {
             lastColorPos = { x: clientX, y: clientY };
@@ -1056,6 +1115,13 @@ void main(){
                 colorVerticesInArea(clientX, clientY, selectedColor);
             }
             return;
+        }
+
+        // Update snapped vertex feedback if 'S' key is held
+        if (snapToVertex) {
+            snappedVertexNdc = findNearestVertex(ndcX, ndcY);
+        } else {
+            snappedVertexNdc = null;
         }
 
         // Normal drawing mode
