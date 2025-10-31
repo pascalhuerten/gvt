@@ -20,7 +20,10 @@ uniform vec4 uColor;
 in vec3 vColor;
 out vec4 outColor;
 void main(){
-    outColor = vec4(mix(uColor.rgb, vColor, 0.5), uColor.a);
+    // Vertex color mode
+    outColor = vec4(vColor, uColor.a);
+    // Full layer color mode
+    // outColor = vec4(uColor.rgb, uColor.a);
 }`;
 
     const layerColors = [

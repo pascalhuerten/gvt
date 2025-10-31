@@ -17210,7 +17210,7 @@
         ]
       ],
       "vertexShader": "#version 300 es\nin vec2 aPos;\nin vec3 aColor;\nout vec3 vColor;\nvoid main(){\n    gl_Position = vec4(aPos, 0.0, 1.0);\n    vColor = aColor;\n}",
-      "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    outColor = vec4(mix(uColor.rgb, vColor, 0.5), uColor.a);\n}",
+      "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    // Vertex color mode\n    outColor = vec4(vColor, uColor.a);\n    // Full layer color mode\n    // outColor = vec4(uColor.rgb, uColor.a);\n}",
       "mode": "TRIANGLES",
       "lineWidth": 1
     }
