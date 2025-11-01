@@ -45,8 +45,8 @@
             // Settings
             this.clearColor = [0.98, 0.98, 1.0, 1.0];
             this.showOverlay = false;
-            this.snapToGrid = false;
-            this.gridSize = 20;
+            this.snapToGrid = true;
+            this.gridSize = 10;
             this.snapToVertex = false;
             this.colorMode = false;
             this.selectedColor = [1.0, 0.0, 0.0];
@@ -377,7 +377,7 @@
                 const result = VertexCore.loadFileContent(txt, this.layers);
                 this.layers = result.layers;
                 this.period = result.period;
-                this.currentLayerId = this.layers[0]?.id || null;
+                this.currentLayerId = this.layers[this.layers.length - 1]?.id || null;
                 this.nextLayerId = Math.max(...this.layers.map(l => l.id), 0) + 1;
                 this.updateLayerUI();
                 this.updateVertexCount();

@@ -215,6 +215,19 @@ void main(){
                 gl.uniform1f(uPeriodLoc, period);
             }
 
+            // Normalized time uniforms (0...1 and 0...2π)
+            const normalizedTime = (uTime % period) / period;
+
+            const uNormalizedTimeLoc = gl.getUniformLocation(prog, 'uNormalizedTime');
+            if (uNormalizedTimeLoc !== -1) {
+                gl.uniform1f(uNormalizedTimeLoc, normalizedTime);
+            }
+
+            const uPhaseLoc = gl.getUniformLocation(prog, 'uPhase');
+            if (uPhaseLoc !== -1) {
+                gl.uniform1f(uPhaseLoc, normalizedTime * 6.283185307179586); // 2π
+            }
+
             const uResolutionLoc = gl.getUniformLocation(prog, 'uResolution');
             if (uResolutionLoc !== -1) {
                 gl.uniform2f(uResolutionLoc, canvas.width, canvas.height);
