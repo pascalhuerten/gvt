@@ -18,7 +18,7 @@
         <h1>EA3 - Farbig gefüllte 2D Geometrie - Pascal Hürten</h1>
 
         <section id="viewer" aria-labelledby="viewer-heading">
-            <h2 id="viewer-heading">WebGL Canvas</h2>
+            <h2 id="viewer-heading">Heckenschweinchen</h2>
 
             <div id="canvas-wrap">
                 <canvas id="background-canvas" class="background" width="720" height="480"></canvas>
@@ -26,14 +26,88 @@
         </section>
 
         <section id="doc">
-            <h2>Quellen & Hinweise</h2>
+            <h2>Programmierung & Vorgehen</h2>
+
+            <h3>1. Basis-Geometrie</h3>
+            <p>Die Grafik habe ich mit <a href="../ea2/" target="_blank">meinem Zeichentool von EA2</a> erstellt.
+                Zentral dabei war die Erweiterung um <strong>Per-Vertex Coloring</strong> – statt Farben pro Ebene
+                können nun Farben direkt je Vertex gespeichert werden. Das neue <strong>Snap to Grid</strong> und
+                <strong>Vertex Snap</strong> Feature vereinfacht das Zeichnen eines konsistenten Dreiecks-Mesh. Alle
+                Vertices, Farben und Shader-Parameter lassen sich in einem JSON-Format exportieren und werden hier zur
+                Anzeige wieder geladen.
+            </p>
+
+            <h3>2. Vertex-Painting</h3>
+            <p>Jeder Vertex besitzt zwei Attribute: Position (<code>aPos</code>) und RGB-Farbe (<code>aColor</code>).
+                Diese werden als separate WebGL-Buffer gebunden und dem Vertex-Shader übergeben:</p>
+            <pre style="background: #f5f5f5; padding: 8px; font-size: 12px; overflow-x: auto;">in vec3 aColor;  // RGB pro Vertex
+out vec3 vColor; // interpoliert an Fragment-Shader</pre>
+            <p>Der Fragment-Shader empfängt für jeden Pixel einen über die Fläche interpolierten Farbwert. So entstehen
+                die sanften Farbübergänge ohne zusätzliche Texturen.</p>
+
+            <h3>3. Vertex-Animationen</h3>
+            <p><strong>Zeit-Uniforms:</strong> Der Rendering-Kernel übergibt drei Zeit-Uniforms an jeden Shader, um
+                glatte Animationen über Periodengrenzen zu ermöglichen:</p>
+            <ul style="margin: 8px 0; font-size: 13px;">
+                <li><code>uTime</code> – ursprüngliche Zeit (0...period)</li>
+                <li><code>uNormalizedTime</code> – normalisiert (0...1), springt nie bei Periodenwechsel</li>
+                <li><code>uPhase</code> – als Bogenmaß (0...2π) für trigonometrische Funktionen</li>
+            </ul>
+
+            <p><strong>Nase (Schnüffeln):</strong> Nutzt <code>uNormalizedTime</code> für präzise Timing-Fenster (8-16%
+                und 58-66%):
+            <pre style="background: #f5f5f5; padding: 8px; font-size: 12px; overflow-x: auto;">float t = (uNormalizedTime - 0.08) / 0.04;
+sniff = sin(t * 3.14159) * 0.2;</pre>
+
+            <p><strong>Blätter:</strong> Vorder- und Hintergrund nutzen <code>uPhase</code> für nahtlose
+                Wellenbewegungen:
+            <pre style="background: #f5f5f5; padding: 8px; font-size: 12px; overflow-x: auto;">pos.y += sin(pos.x + uPhase) * 0.015;
+pos.x += cos(pos.y + uPhase) * 0.003;</pre>
+
+            <h3>4. WebGL Rendering & Animationen</h3>
+            <p>Die Render-Pipeline lädt je Ebene Vertices und Farben in GPU-Buffer, wendet den entsprechenden Shader an
+                und zeichnet als Triangles mit <code>drawArrays()</code>. Die Render-Loop mit
+                <code>requestAnimationFrame</code> aktualisiert alle Zeit-Uniforms kontinuierlich. Durch die
+                normalisierten Zeit-Werte (<code>uNormalizedTime</code>, <code>uPhase</code>) lassen sich Animationen
+                bauen, die auch in Loops nahtlos ablaufen.
+            </p>
+            <p><strong>Daten-Format:</strong> <a href="./defaultVertices.json" target="_blank">Die JSON-Datei</a>
+                enthält je Ebene: Vertices, RGB-Farben, Vertex- und Fragment-Shader, Draw-Mode und Linienbreite. Der
+                Parameter <code>period</code> definiert die Animationsperiode in Sekunden.</p>
 
             <h3>Referenzen:</h3>
             <ul>
                 <li>Repo: <a href="https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea3"
                         target="_blank">https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea3</a>
                 </li>
+                <li>Und einfach so: Toller Artikel über Igel von der deutschen Wiltierstiftung: <a
+                        href="https://www.deutschewildtierstiftung.de/wildtiere/igel"
+                        target="_blank">https://www.deutschewildtierstiftung.de/wildtiere/igel</a>
             </ul>
+            <!-- Screenshots of process in a row -->
+            <div class="doc-image-gallery">
+                <figure>
+                    <img src="ea3_ai_hedgehog_as_guide_snap.png" alt="AI-generierter Igel als Referenz" height="200">
+                    <figcaption>1. KI-Referenz: Zuerst hatte ich Fotografien als Vorlage versucht, dabei wurde ich
+                        allerdings immer zu kleinteilig. Diese KI-Grafik half mir, die Igel-Form als Dreiecke zu sehen.
+                    </figcaption>
+                </figure>
+                <figure>
+                    <img src="ea3_base_shape_snap.png" alt="Basis-Geometrie des Igels" height="200">
+                    <figcaption>2. Basis-Shape: Mit Snap-to-Grid und Vertex-Snap habe ich dann auf verschiedenen Ebenen
+                        für Gesicht, Stachelwerk, Nase etc. die Dreiecks-Geometrie erstellt.</figcaption>
+                </figure>
+                <figure>
+                    <img src="ea3_vertex_painting_snap.png" alt="Vertex-Painting mit Farbgebung" height="200">
+                    <figcaption>3. Vertex-Painting: Im Vertex-Coloring Modus habe ich dann je Ebene die Farben pro
+                        Vertex gesetzt, um die Farbverläufe zu erzeugen.</figcaption>
+                </figure>
+                <figure>
+                    <img src="ea3_shader_edit_snap.png" alt="Shader-Editor mit Animationen" height="200">
+                    <figcaption>4. Shader-Animationen: Zuletzt habe ich im Shader-Editor die Vertex-Animationen
+                        für die Blätter und die Nase programmiert.</figcaption>
+                </figure>
+            </div>
         </section>
     </main>
     <script src="../ea2/vertex-core.js" defer></script>

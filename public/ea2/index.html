@@ -62,7 +62,7 @@
                         <label for="snapToGrid">Snap to Grid:</label>
                         <input id="snapToGrid" type="checkbox">
                         <label for="gridSize">Grid Size:</label>
-                        <input id="gridSize" type="range" min="5" max="100" value="20">
+                        <input id="gridSize" type="range" min="5" max="100" value="10">
                         <span id="gridSizeVal">20</span>
                     </div>
                     <div class="row">
@@ -154,8 +154,69 @@
                 <li><strong>Export/Import:</strong> Speichere deine Arbeit oder lade Vorlagen</li>
             </ol>
 
+            <h3>Technische Umsetzung: Das Zeichentool</h3>
+            <p><strong>Überblick:</strong> Das Zeichentool basiert auf einer modularen Architektur mit drei Kernmodulen
+                für Rendering, Dienstprogramme und Benutzeroberfläche.</p>
+
+            <p>Module:</p>
+            <ul style="margin: 8px 0; font-size: 13px;">
+                <li><code>vertex-core.js</code> – WebGL2-Rendering, Layer-Verwaltung, Shader-Kompilierung</li>
+                <li><code>vertex-utils.js</code> – Hilfsfunktionen (NDC-Konvertierung, Distanzberechnung,
+                    Vertex-Snapping)</li>
+                <li><code>vertex-editor.js</code> – Interaktive UI (Zeichnen, Färben, Layer-Management, Animation)</li>
+            </ul>
+
+            <p><strong>Koordinatensystem:</strong> Das Tool verwendet normalisierte Gerätekoordinaten (NDC), bei denen
+                der Canvas von -1 bis +1 in beide Richtungen (x, y) reicht. Dies ermöglicht unabhängig von der
+                Canvas-Größe konsistente Geometrie.</p>
+
+            <p><strong>Layer-System:</strong> Jeder Layer speichert:</p>
+            <ul style="margin: 8px 0; font-size: 13px;">
+                <li>Vertices: Array von [x, y] Positionen</li>
+                <li>Colors: Optional per-Vertex RGB-Werte (0...1)</li>
+                <li>Vertex/Fragment Shaders: Programmierbare Effekte</li>
+                <li>Draw-Mode: GL-Primitive (LINES, LINE_STRIP, TRIANGLES, etc.)</li>
+                <li>Layer-Name &amp; ID: Für Management und Export</li>
+            </ul>
+
+            <p><strong>Vertex-Snapping:</strong> Beim Zeichnen mit gedrückter <strong>S</strong>-Taste werden neue
+                Vertices automatisch an existierende Vertices (Snap-Radius 0.15 NDC) aus allen Layern gebunden. Dies
+                vereinfacht präzises Zeichnen und Verbinden von Geometrien über Layer-Grenzen hinweg.</p>
+
+            <p><strong>Per-Vertex Coloring:</strong> Der Color Mode ermöglicht pixelgenaue Färbung. Farben werden pro
+                Vertex im RGB-Format (0...1) gespeichert und durch Aktivieren des Color Mode mit einem konfigurierbaren
+                Pinsel (Brush Size 5...50px) angewendet. Im Fragment Shader werden Farben automatisch interpoliert
+                (Gouraud Shading).</p>
+
+            <p><strong>Shader-Programmierung: Verfügbare Attribute & Uniforms</strong></p>
+            <p>Beim Bearbeiten von Shadern stehen folgende Variablen zur Verfügung:</p>
+            <p><strong>Vertex Attribute (Input):</strong></p>
+            <ul style="margin: 8px 0; font-size: 13px;">
+                <li><code>in vec2 aPos</code> – Vertex-Position in NDC-Koordinaten (-1...1)</li>
+                <li><code>in vec3 aColor</code> – RGB-Farbe des Vertices (0...1 pro Kanal)</li>
+            </ul>
+            <p><strong>Uniforms (für alle Vertices gleich):</strong></p>
+            <ul style="margin: 8px 0; font-size: 13px;">
+                <li><code>uniform vec4 uColor</code> – Layer-Farbe (RGBA)</li>
+                <li><code>uniform float uTime</code> – ursprüngliche Zeit in Sekunden (0...period)</li>
+                <li><code>uniform float uNormalizedTime</code> – normalisierte Zeit (0...1, springt nie)</li>
+                <li><code>uniform float uPhase</code> – als Bogenmaß (0...2π) für sin/cos-Funktionen</li>
+                <li><code>uniform float uPeriod</code> – Animationsperiode in Sekunden</li>
+                <li><code>uniform vec2 uResolution</code> – Canvas-Auflösung in Pixeln</li>
+            </ul>
+            <p><strong>Fragment Shader Input:</strong></p>
+            <ul style="margin: 8px 0; font-size: 13px;">
+                <li><code>in vec3 vColor</code> – interpolierte Vertex-Farbe vom Vertex-Shader</li>
+            </ul>
+
+            <p><strong>Export &amp; Persistierung:</strong> Geometrie wird als JSON mit vollständiger Layer-Information
+                exportiert. Dies ermöglicht iteratives Arbeiten und Weitergabe von Werken. Default-Geometrie
+                (<code>defaultVertices.json</code>) wird beim Laden automatisch eingelesen.</p>
+
             <h3>Referenzen:</h3>
             <ul>
+                <li>Standardmäßig lädt dieses Tool beim Start folgende JSON-Datei: <a href="./defaultVertices.json"
+                        target="_blank">defaultVertices.json</a></li>
                 <li>Wal wurde von diesem Foto abgepaust: <a href="https://jooinn.com/img/get"
                         target="_blank">https://jooinn.com/img/get</a></li>
                 <li>Repo: <a href="https://git.mylab.th-luebeck.de/pascal.huerten/gvt/-/tree/master/public/ea2"
@@ -164,8 +225,15 @@
             </ul>
             <!-- Screenshots of process in a row -->
             <div class="doc-image-gallery">
-                <img src="wal-ref-1.png" alt="" height="200">
-                <img src="wal-ref-2.png" alt="" height="200">
+                <figure>
+                    <img src="wal-ref-1.png" alt="Referenzphoto eines Wals" height="200">
+                    <figcaption>1. Referenz und Kontur: Walphoto als Hintergrund um Kontur abzupausen</figcaption>
+                </figure>
+                <figure>
+                    <img src="wal-ref-2.png" alt="Gezeichnete Walkontur mit Linien" height="200">
+                    <figcaption>2. Schattierung: Linienmuster und Kreuzschraffur um Volumen anzudeuten und die Textur
+                        der zerklüfteten Haut des Buckelwals nachzubilden</figcaption>
+                </figure>
             </div>
         </section>
     </main>
