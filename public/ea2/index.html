@@ -51,7 +51,7 @@
                     </div>
                     <div class="row">
                         <button id="addLayer">+ Add Layer</button>
-                        <small id="vertex-count" class="justify-self-end">Vertices: 0</small>
+                        <small id="vertexCount" class="justify-self-end">Vertices: 0</small>
                     </div>
                     <hr>
                     <div class="row">
@@ -73,10 +73,6 @@
                         <label for="colorRadius">Brush Size:</label>
                         <input id="colorRadius" type="range" min="5" max="50" value="20">
                         <span id="colorRadiusVal">20px</span>
-                    </div>
-                    <div class="row">
-                        <span id="colorModeHelp" style="font-size: 0.8em; color: #666;">Click & drag to color vertices
-                            in area</span>
                     </div>
                     <div class="row">
                         <strong>Animation:</strong>
@@ -173,6 +169,9 @@
             </div>
         </section>
     </main>
+    <script src="vertex-core.js" defer></script>
+    <script src="vertex-utils.js" defer></script>
+    <script src="vertex-editor.js" defer></script>
     <script src="script.js" defer></script>
 </body>
 
