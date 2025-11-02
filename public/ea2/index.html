@@ -160,7 +160,8 @@
 
             <p>Module:</p>
             <ul style="margin: 8px 0; font-size: 13px;">
-                <li><code>vertex-core.js</code> – WebGL2-Rendering, Layer-Verwaltung, Shader-Kompilierung</li>
+                <li><code>vertex-core.js</code> – WebGL2-Rendering, Layer-Verwaltung, Shader-Kompilierung, Indexed
+                    Geometry</li>
                 <li><code>vertex-utils.js</code> – Hilfsfunktionen (NDC-Konvertierung, Distanzberechnung,
                     Vertex-Snapping)</li>
                 <li><code>vertex-editor.js</code> – Interaktive UI (Zeichnen, Färben, Layer-Management, Animation)</li>
@@ -170,10 +171,22 @@
                 der Canvas von -1 bis +1 in beide Richtungen (x, y) reicht. Dies ermöglicht unabhängig von der
                 Canvas-Größe konsistente Geometrie.</p>
 
+            <p><strong>Indexed Geometry – Intelligente Vertex-Deduplizierung:</strong> Das Tool nutzt <em>Index-basierte
+                    Geometrie</em> beim Zeichnen, um Speicher zu sparen und Performance zu verbessern. Wiederholte
+                Vertices (z.B. bei Linien-Loops) werden automatisch dedupliziert – statt jeden Punkt mehrfach zu
+                speichern, wird er einmal gespeichert und ein Index-Array referenziert ihn. Dies spart besonders bei
+                komplexen Geometrien mit vielen Wiederholungen Speicher ein.</p>
+
+            <p><strong>Automatische Daten-Optimierung beim Export:</strong> Beim Export analysiert das Tool automatisch,
+                ob die Indexed-Darstellung tatsächlich Speicherplatz spart. Wenn viele sich nicht wiederholende Vertices
+                vorhanden sind, wird die Geometrie stattdessen unindexiert exportiert, um so den Overhead der Indizes in
+                diesem Fall zu vermeiden. Dies gewährleistet immer die bestmögliche Dateigröße.</p>
+
             <p><strong>Layer-System:</strong> Jeder Layer speichert:</p>
             <ul style="margin: 8px 0; font-size: 13px;">
-                <li>Vertices: Array von [x, y] Positionen</li>
-                <li>Colors: Optional per-Vertex RGB-Werte (0...1)</li>
+                <li>Vertices: Array von eindeutigen [x, y] Positionen (dedupliziert)</li>
+                <li>Colors: Optional per-Vertex RGB-Werte (0...1), dedupliziert mit Vertices</li>
+                <li>Indices: Index-Array, das die Rendering-Reihenfolge definiert</li>
                 <li>Vertex/Fragment Shaders: Programmierbare Effekte</li>
                 <li>Draw-Mode: GL-Primitive (LINES, LINE_STRIP, TRIANGLES, etc.)</li>
                 <li>Layer-Name &amp; ID: Für Management und Export</li>
@@ -181,12 +194,13 @@
 
             <p><strong>Vertex-Snapping:</strong> Beim Zeichnen mit gedrückter <strong>S</strong>-Taste werden neue
                 Vertices automatisch an existierende Vertices (Snap-Radius 0.15 NDC) aus allen Layern gebunden. Dies
-                vereinfacht präzises Zeichnen und Verbinden von Geometrien über Layer-Grenzen hinweg.</p>
+                vereinfacht präzises Zeichnen und Verbinden von Geometrien über Layer-Grenzen hinweg. Die Deduplizierung
+                sorgt dafür, dass mehrfach gezogene Punkte automatisch zusammengefasst werden.</p>
 
             <p><strong>Per-Vertex Coloring:</strong> Der Color Mode ermöglicht pixelgenaue Färbung. Farben werden pro
                 Vertex im RGB-Format (0...1) gespeichert und durch Aktivieren des Color Mode mit einem konfigurierbaren
-                Pinsel (Brush Size 5...50px) angewendet. Im Fragment Shader werden Farben automatisch interpoliert
-                (Gouraud Shading).</p>
+                Pinsel (Brush Size 5...50px) angewendet. Im Fragment Shader werden Farben automatisch interpoliert. Die
+                Farb-Daten sind ebenfalls mit der Indexed-Geometrie verknüpft und werden mit dedupliziert.</p>
 
             <p><strong>Shader-Programmierung: Verfügbare Attribute & Uniforms</strong></p>
             <p>Beim Bearbeiten von Shadern stehen folgende Variablen zur Verfügung:</p>
@@ -237,8 +251,8 @@
             </div>
         </section>
     </main>
-    <script src="vertex-core.js" defer></script>
     <script src="vertex-utils.js" defer></script>
+    <script src="vertex-core.js" defer></script>
     <script src="vertex-editor.js" defer></script>
     <script src="script.js" defer></script>
 </body>

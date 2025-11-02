@@ -66,11 +66,11 @@ pos.x += cos(pos.y + uPhase) * 0.003;</pre>
 
             <h3>4. WebGL Rendering & Animationen</h3>
             <p>Die Render-Pipeline lädt je Ebene Vertices und Farben in GPU-Buffer, wendet den entsprechenden Shader an
-                und zeichnet als Triangles mit <code>drawArrays()</code>. Die Render-Loop mit
-                <code>requestAnimationFrame</code> aktualisiert alle Zeit-Uniforms kontinuierlich. Durch die
-                normalisierten Zeit-Werte (<code>uNormalizedTime</code>, <code>uPhase</code>) lassen sich Animationen
-                bauen, die auch in Loops nahtlos ablaufen.
-            </p>
+                und zeichnet die Geometrie mit dem spezifizierten Draw-Mode (Dreiecke, Linien etc.) und drawArrays oder
+                drawElements, wenn die Geometrie indiziert ist. Die Render-Loop mit <code>requestAnimationFrame</code>
+                aktualisiert alle Zeit-Uniforms kontinuierlich. Durch die normalisierten Zeit-Werte
+                (<code>uNormalizedTime</code>, <code>uPhase</code>) lassen sich Animationen bauen, die auch in Loops
+                nahtlos ablaufen.</p>
             <p><strong>Daten-Format:</strong> <a href="./defaultVertices.json" target="_blank">Die JSON-Datei</a>
                 enthält je Ebene: Vertices, RGB-Farben, Vertex- und Fragment-Shader, Draw-Mode und Linienbreite. Der
                 Parameter <code>period</code> definiert die Animationsperiode in Sekunden.</p>
@@ -110,6 +110,7 @@ pos.x += cos(pos.y + uPhase) * 0.003;</pre>
             </div>
         </section>
     </main>
+    <script src="../ea2/vertex-utils.js" defer></script>
     <script src="../ea2/vertex-core.js" defer></script>
     <script src="script.js" defer></script>
 </body>
