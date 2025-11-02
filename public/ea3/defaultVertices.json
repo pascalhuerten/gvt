@@ -1,7 +1,7 @@
 {
   "layers": [
     {
-      "id": 20,
+      "id": 12,
       "name": "Shadow",
       "vertexShader": "#version 300 es\nin vec2 aPos;\nin vec3 aColor;\nout vec3 vColor;\nvoid main(){\n    gl_Position = vec4(aPos, 0.0, 1.0);\n    vColor = aColor;\n}",
       "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    outColor = vec4(vColor, uColor.a);\n}",
@@ -270,7 +270,7 @@
       ]
     },
     {
-      "id": 21,
+      "id": 13,
       "name": "BG-Leaves",
       "vertexShader": "#version 300 es\nprecision mediump float;\nin vec2 aPos;\nuniform float uPhase;\nin vec3 aColor;\nout vec3 vColor;\n\nvoid main(){\n    vec2 pos = aPos;\n    pos.y += sin(pos.x + uPhase) * 0.0001;\n    pos.x += cos(pos.y + uPhase) * 0.03;\n    gl_Position = vec4(pos, 0.0, 1.0);\n    vColor = aColor;\n}",
       "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    // Vertex color mode\n    outColor = vec4(vColor, uColor.a);\n    // Full layer color mode\n    // outColor = vec4(uColor.rgb, uColor.a);\n}",
@@ -849,7 +849,7 @@
       ]
     },
     {
-      "id": 22,
+      "id": 14,
       "name": "Face",
       "vertexShader": "#version 300 es\nin vec2 aPos;\nin vec3 aColor;\nout vec3 vColor;\nvoid main(){\n    gl_Position = vec4(aPos, 0.0, 1.0);\n    vColor = aColor;\n}",
       "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    // Vertex color mode\n    outColor = vec4(vColor, uColor.a);\n    // Full layer color mode\n    // outColor = vec4(uColor.rgb, uColor.a);\n}",
@@ -2087,7 +2087,7 @@
       ]
     },
     {
-      "id": 23,
+      "id": 15,
       "name": "Eye",
       "vertexShader": "#version 300 es\nin vec2 aPos;\nin vec3 aColor;\nout vec3 vColor;\nvoid main(){\n    gl_Position = vec4(aPos, 0.0, 1.0);\n    vColor = aColor;\n}",
       "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    // Vertex color mode\n    outColor = vec4(vColor, uColor.a);\n    // Full layer color mode\n    // outColor = vec4(uColor.rgb, uColor.a);\n}",
@@ -2272,7 +2272,7 @@
       ]
     },
     {
-      "id": 24,
+      "id": 16,
       "name": "Nose",
       "vertexShader": "#version 300 es\nprecision mediump float;\nin vec2 aPos;\nuniform float uNormalizedTime;\nin vec3 aColor;\nout vec3 vColor;\n\nvoid main(){\n    vec2 pos = aPos;\n    float t = uNormalizedTime;\n    float sniff = 0.0;\n    \n    // Two quick sniffs with different intensities\n    // First sniff: 8-12% of period (stronger)\n    if (t >= 0.08 && t <= 0.12) {\n        float phase = (t - 0.08) / 0.04;\n        sniff = sin(phase * 3.14159) * 0.2 * pow(sin(phase * 3.14159), 3.0);\n    }\n    // Second sniff: 12-16% of period (slightly weaker)\n    else if (t >= 0.12 && t <= 0.16) {\n        float phase = (t - 0.12) / 0.04;\n        sniff = sin(phase * 3.14159) * 0.15 * pow(sin(phase * 3.14159), 3.0);\n    }\n    // Third sniff: 58-62% (stronger)\n    else if (t >= 0.58 && t <= 0.62) {\n        float phase = (t - 0.58) / 0.04;\n        sniff = sin(phase * 3.14159) * 0.2 * pow(sin(phase * 3.14159), 3.0);\n    }\n    // Fourth sniff: 62-66% (slightly weaker)\n    else if (t >= 0.62 && t <= 0.66) {\n        float phase = (t - 0.62) / 0.04;\n        sniff = sin(phase * 3.14159) * 0.15 * pow(sin(phase * 3.14159), 3.0);\n    }\n    \n    // Apply sniff motion with falloff based on Y position\n    float noseFactor = 1.0;\n    if (pos.y > 0.2) {\n        noseFactor = 1.0;\n    } else if (pos.y > -0.2) {\n        noseFactor = (pos.y + 0.2) / 0.4 * 0.7 + 0.3;\n    } else {\n        noseFactor = 0.1;\n    }\n    \n    pos.y += sniff * noseFactor;\n    if (sniff > 0.0) {\n        pos.x *= 1.0 - sniff * 0.1 * noseFactor;\n    }\n    \n    gl_Position = vec4(pos, 0.0, 1.0);\n    vColor = aColor;\n}",
       "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    // Vertex color mode\n    outColor = vec4(vColor, uColor.a);\n    // Full layer color mode\n    // outColor = vec4(uColor.rgb, uColor.a);\n}",
@@ -2469,7 +2469,7 @@
       ]
     },
     {
-      "id": 25,
+      "id": 17,
       "name": "Spikes",
       "vertexShader": "#version 300 es\nin vec2 aPos;\nin vec3 aColor;\nout vec3 vColor;\nvoid main(){\n    gl_Position = vec4(aPos, 0.0, 1.0);\n    vColor = aColor;\n}",
       "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    // Vertex color mode\n    outColor = vec4(vColor, uColor.a);\n    // Full layer color mode\n    // outColor = vec4(uColor.rgb, uColor.a);\n}",
@@ -3181,24 +3181,24 @@
           0.14509804546833038
         ],
         [
-          0.29411765933036804,
-          0.14509804546833038,
+          0.34117648005485535,
+          0.19607843458652496,
+          0.0784313753247261
+        ],
+        [
+          0.4901960790157318,
+          0.29019609093666077,
+          0.12941177189350128
+        ],
+        [
+          0.30980393290519714,
+          0.1764705926179886,
           0.06666667014360428
         ],
         [
-          0.5333333611488342,
-          0.32156863808631897,
-          0.1882352977991104
-        ],
-        [
-          0.23529411852359772,
-          0.11764705926179886,
-          0.0470588244497776
-        ],
-        [
-          0.3137255012989044,
-          0.1882352977991104,
-          0.10588235408067703
+          0.34117648005485535,
+          0.19607843458652496,
+          0.0784313753247261
         ],
         [
           0.3137255012989044,
@@ -3386,9 +3386,9 @@
           0.1882352977991104
         ],
         [
-          0.3137255012989044,
-          0.1882352977991104,
-          0.10588235408067703
+          0.4901960790157318,
+          0.29019609093666077,
+          0.12941177189350128
         ],
         [
           0.45098039507865906,
@@ -4556,7 +4556,87 @@
       ]
     },
     {
-      "id": 26,
+      "id": 18,
+      "name": "Ohr",
+      "vertexShader": "#version 300 es\nprecision mediump float;\nin vec2 aPos;\nuniform float uNormalizedTime;\nin vec3 aColor;\nout vec3 vColor;\n\nvoid main(){\n    vec2 pos = aPos;\n    float t = uNormalizedTime;\n    float sniff = 0.0;\n    \n    // First twitch: 20-24% of period\n    if (t >= 0.20 && t <= 0.24) {\n        float phase = (t - 0.20) / 0.04;\n        sniff = sin(phase * 3.14159) * 0.03 * pow(sin(phase * 3.14159), 3.0);\n    }\n    \n    // Second twitch: 66-74% of period\n    if (t >= 0.72 && t <= 0.80) {\n        float phase = (t - 0.72) / 0.03;\n        sniff = sin(phase * 3.14159) * 0.03 * pow(sin(phase * 3.14159), 3.0);\n    }\n\n    // Apply motion with falloff based on Y position\n    float factor = 1.0;\n    if (pos.y > 0.2) {\n        factor = 1.0;\n    } else if (pos.y > -0.2) {\n        factor = (pos.y + 0.2) / 0.4 * 0.7 + 0.3;\n    } else {\n        factor = 0.1;\n    }\n    \n    pos.x += sniff * factor;\n    pos.y += sniff * factor * 0.7;\n    \n    gl_Position = vec4(pos, 0.0, 1.0);\n    vColor = aColor;\n}",
+      "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    outColor = vec4(vColor, uColor.a);\n}",
+      "mode": "TRIANGLES",
+      "lineWidth": 1,
+      "vertices": [
+        [
+          -0.1120801568031311,
+          0.031752463430166245
+        ],
+        [
+          -0.0306656863540411,
+          -0.01340443454682827
+        ],
+        [
+          0.02262595295906067,
+          0.06102502718567848
+        ],
+        [
+          -0.001211911323480308,
+          0.1295221745967865
+        ],
+        [
+          -0.04378029704093933,
+          0.11916493624448776
+        ],
+        [
+          -0.1034669354557991,
+          0.0005348807317204773
+        ]
+      ],
+      "colors": [
+        [
+          0.7137255072593689,
+          0.501960813999176,
+          0.3294117748737335
+        ],
+        [
+          0.6196078658103943,
+          0.4117647111415863,
+          0.239215686917305
+        ],
+        [
+          0.4745098054409027,
+          0.29411765933036804,
+          0.14509804546833038
+        ],
+        [
+          0.5333333611488342,
+          0.34117648005485535,
+          0.1882352977991104
+        ],
+        [
+          0.7411764860153198,
+          0.5098039507865906,
+          0.3176470696926117
+        ],
+        [
+          0.6196078658103943,
+          0.4117647111415863,
+          0.239215686917305
+        ]
+      ],
+      "indices": [
+        0,
+        1,
+        2,
+        0,
+        2,
+        3,
+        0,
+        3,
+        4,
+        1,
+        0,
+        5
+      ]
+    },
+    {
+      "id": 19,
       "name": "FG-Leaves",
       "vertexShader": "#version 300 es\nprecision mediump float;\nin vec2 aPos;\nuniform float uPhase;\nin vec3 aColor;\nout vec3 vColor;\n\nvoid main(){\n    vec2 pos = aPos;\n    pos.y += sin(pos.x + uPhase) * 0.015;\n    pos.x += cos(pos.y + uPhase) * 0.003;\n    gl_Position = vec4(pos, 0.0, 1.0);\n    vColor = aColor;\n}",
       "fragmentShader": "#version 300 es\nprecision mediump float;\nuniform vec4 uColor;\nin vec3 vColor;\nout vec4 outColor;\nvoid main(){\n    // Vertex color mode\n    outColor = vec4(vColor, uColor.a);\n    // Full layer color mode\n    // outColor = vec4(uColor.rgb, uColor.a);\n}",
