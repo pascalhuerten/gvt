@@ -32,8 +32,6 @@ main {
 .background,
 #background-canvas {
     border: 1px solid #ccc;
-    width: 720px;
-    height: 480px;
     /* prevent scrolling while drawing on touch */
     touch-action: none;
     background: linear-gradient(180deg, #ffffff, #f6f8ff);

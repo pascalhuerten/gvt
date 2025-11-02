@@ -156,22 +156,22 @@
 
             <h3>Technische Umsetzung: Das Zeichentool</h3>
             <p><strong>Überblick:</strong> Das Zeichentool basiert auf einer modularen Architektur mit drei Kernmodulen
-                für Rendering, Dienstprogramme und Benutzeroberfläche.</p>
+                für Rendering, Editor und weitere Utilities.</p>
 
             <p>Module:</p>
             <ul style="margin: 8px 0; font-size: 13px;">
                 <li><code>vertex-core.js</code> – WebGL2-Rendering, Layer-Verwaltung, Shader-Kompilierung, Indexed
                     Geometry</li>
+                <li><code>vertex-editor.js</code> – Interaktive UI (Zeichnen, Färben, Layer-Management, Animation)</li>
                 <li><code>vertex-utils.js</code> – Hilfsfunktionen (NDC-Konvertierung, Distanzberechnung,
                     Vertex-Snapping)</li>
-                <li><code>vertex-editor.js</code> – Interaktive UI (Zeichnen, Färben, Layer-Management, Animation)</li>
             </ul>
 
             <p><strong>Koordinatensystem:</strong> Das Tool verwendet normalisierte Gerätekoordinaten (NDC), bei denen
                 der Canvas von -1 bis +1 in beide Richtungen (x, y) reicht. Dies ermöglicht unabhängig von der
                 Canvas-Größe konsistente Geometrie.</p>
 
-            <p><strong>Indexed Geometry – Intelligente Vertex-Deduplizierung:</strong> Das Tool nutzt <em>Index-basierte
+            <p><strong>Indexed Geometry – Vertex-Deduplizierung:</strong> Das Tool nutzt <em>Index-basierte
                     Geometrie</em> beim Zeichnen, um Speicher zu sparen und Performance zu verbessern. Wiederholte
                 Vertices (z.B. bei Linien-Loops) werden automatisch dedupliziert – statt jeden Punkt mehrfach zu
                 speichern, wird er einmal gespeichert und ein Index-Array referenziert ihn. Dies spart besonders bei
@@ -254,6 +254,7 @@
     <script src="vertex-utils.js" defer></script>
     <script src="vertex-core.js" defer></script>
     <script src="vertex-editor.js" defer></script>
+    <script src="../util/fullscreen-manager.js" defer></script>
     <script src="script.js" defer></script>
 </body>
 

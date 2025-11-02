@@ -164,12 +164,69 @@ function autoInitializeViewer() {
         viewer.loadGeometryFromUrl('defaultVertices.json').catch(() => {
             console.log('No default geometry file found');
         });
+
+        // Toggle play/pause on 'a' key press
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'a') {
+                viewer.togglePlayPause();
+            }
+        });
     }
+}
+
+// Initialize fullscreen manager for EA3
+function initFullscreenManager() {
+    // Wait for viewer to be initialized
+    if (!window.vertexViewer) {
+        console.warn('Vertex viewer not yet initialized');
+        return;
+    }
+
+    const fullscreenManager = new FullscreenManager(
+        document.getElementById('canvas-wrap'),
+        {
+            canvasElement: document.getElementById('background-canvas'),
+            hideElements: [],
+        }
+    );
+
+    // Store reference for external access
+    window.ea3FullscreenManager = fullscreenManager;
+
+    // Bind to a fullscreen button if it exists
+    const fsBtn = document.querySelector('.fullscreenBtn');
+    if (fsBtn) {
+        fsBtn.addEventListener('click', () => {
+            fullscreenManager.toggleFullscreen();
+        });
+        // Add visual feedback
+        fsBtn.setAttribute('aria-pressed', 'false');
+        fsBtn.addEventListener('click', () => {
+            fsBtn.setAttribute('aria-pressed', String(fullscreenManager.getIsFullscreen()));
+        });
+    }
+
+    // Also toggle fullscreen on pressing 'F' key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'f' || event.key === 'F') {
+            fullscreenManager.toggleFullscreen();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && fullscreenManager.getIsFullscreen()) {
+            fullscreenManager.exitFullscreen();
+        }
+    });
 }
 
 // Auto-initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', autoInitializeViewer);
+    document.addEventListener('DOMContentLoaded', initFullscreenManager);
 } else {
     autoInitializeViewer();
+    initFullscreenManager();
 }
+

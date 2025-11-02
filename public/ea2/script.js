@@ -6,9 +6,12 @@
 // Initialize the editor when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initEditor);
+    document.addEventListener('DOMContentLoaded', initFullscreenManager);
 } else {
     initEditor();
+    initFullscreenManager();
 }
+
 
 function initEditor() {
     // Create and initialize the vertex editor
@@ -22,6 +25,80 @@ function initEditor() {
     editor.initializeDisplay();
     editor.start();
 
+    // Toggle play/pause on 'a' key press
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'a') {
+            editor.togglePlayPause();
+        }
+    });
+
     // Make editor globally accessible for debugging
     window.vertexEditor = editor;
+}
+/**
+ * EA2 Fullscreen Integration Example
+ * Shows how to use FullscreenManager with the EA2 vertex editor
+ */
+
+// Initialize fullscreen manager for EA2
+function initFullscreenManager() {
+    // Wait for editor to be initialized
+    if (!window.vertexEditor) {
+        console.warn('Vertex editor not yet initialized');
+        return;
+    }
+
+    console.log('Initializing EA2 FullscreenManager');
+
+    const fullscreenManager = new FullscreenManager(
+        document.getElementById('canvas-wrap'),
+        {
+            canvasElement: [
+                document.getElementById('background-canvas'),
+                document.getElementById('background-image-canvas'),
+                document.getElementById('overlay-canvas')
+            ],
+            hideElements: [
+                document.querySelector('#controls'),
+            ],
+            onEnter: () => {
+                // Optional: Pause controls or adjust UI
+                console.log('EA2 entered fullscreen');
+            },
+            onExit: () => {
+                // Optional: Resume controls or adjust UI
+                console.log('EA2 exited fullscreen');
+            }
+        }
+    );
+
+    // Store reference for external access
+    window.ea2FullscreenManager = fullscreenManager;
+
+    // Bind to a fullscreen button if it exists
+    const fsBtn = document.querySelector('.fullscreenBtn');
+    if (fsBtn) {
+        fsBtn.addEventListener('click', () => {
+            fullscreenManager.toggleFullscreen();
+        });
+        // Add visual feedback
+        fsBtn.setAttribute('aria-pressed', 'false');
+        fsBtn.addEventListener('click', () => {
+            fsBtn.setAttribute('aria-pressed', String(fullscreenManager.getIsFullscreen()));
+        });
+    }
+
+    // Also toggle fullscreen on pressing 'F' key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'f' || event.key === 'F') {
+            fullscreenManager.toggleFullscreen();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && fullscreenManager.getIsFullscreen()) {
+            fullscreenManager.exitFullscreen();
+        }
+    });
 }
