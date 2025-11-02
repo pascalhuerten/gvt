@@ -7,6 +7,122 @@
 (function (globalScope) {
     'use strict';
 
+    // ========================================================================
+    // Coordinate Conversion Functions (WebGL NDC conversions)
+    // ========================================================================
+
+    /**
+     * Convert mouse event coordinates to WebGL Normalized Device Coordinates
+     * @param {MouseEvent} e - Mouse event
+     * @param {HTMLCanvasElement} canvas - Canvas element
+     * @param {boolean} snapToGrid - Enable grid snapping
+     * @param {number} gridSize - Grid cell size in pixels
+     * @returns {[number, number]} [ndcX, ndcY] in range [-1, 1]
+     */
+    function eventToNDC(e, canvas, snapToGrid = false, gridSize = 20) {
+        const rect = canvas.getBoundingClientRect();
+        let x = (e.clientX - rect.left) / rect.width;
+        let y = (e.clientY - rect.top) / rect.height;
+
+        // Apply grid snapping if enabled
+        if (snapToGrid) {
+            const pixelX = x * rect.width;
+            const pixelY = y * rect.height;
+            const snappedPixelX = Math.round(pixelX / gridSize) * gridSize;
+            const snappedPixelY = Math.round(pixelY / gridSize) * gridSize;
+            x = snappedPixelX / rect.width;
+            y = snappedPixelY / rect.height;
+        }
+
+        // NDC -1..1
+        const ndcX = x * 2 - 1;
+        const ndcY = (1 - y) * 2 - 1;
+        return [ndcX, ndcY];
+    }
+
+    /**
+     * Convert WebGL NDC coordinates to mouse event coordinates
+     * @param {number} ndx - NDC X coordinate
+     * @param {number} ndy - NDC Y coordinate
+     * @param {HTMLCanvasElement} canvas - Canvas element
+     * @returns {{x: number, y: number}} Mouse coordinates
+     */
+    function ndcToClient(ndx, ndy, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const cx = rect.left + (ndx * 0.5 + 0.5) * rect.width;
+        const cy = rect.top + (1 - (ndy * 0.5 + 0.5)) * rect.height;
+        return { x: cx, y: cy };
+    }
+
+    /**
+     * Convert WebGL NDC coordinates to pixel coordinates
+     * @param {number} x - NDC X coordinate
+     * @param {number} y - NDC Y coordinate
+     * @param {HTMLCanvasElement} canvas - Canvas element
+     * @returns {[number, number]} [pixelX, pixelY]
+     */
+    function ndcToPixel(x, y, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const px = (x * 0.5 + 0.5) * rect.width;
+        const py = (1 - (y * 0.5 + 0.5)) * rect.height;
+        return [px, py];
+    }
+
+    /**
+     * Convert mouse coordinates to WebGL NDC coordinates
+     * @param {number} clientX - Mouse X coordinate
+     * @param {number} clientY - Mouse Y coordinate
+     * @param {HTMLCanvasElement} canvas - Canvas element
+     * @returns {[number, number]} [ndcX, ndcY] in range [-1, 1]
+     */
+    function clientToNDC(clientX, clientY, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const x = (clientX - rect.left) / rect.width;
+        const y = (clientY - rect.top) / rect.height;
+        const ndcX = x * 2 - 1;
+        const ndcY = (1 - y) * 2 - 1;
+        return [ndcX, ndcY];
+    }
+
+    // ========================================================================
+    // Vertex Query Functions
+    // ========================================================================
+
+    /**
+     * Find the nearest vertex to a point in NDC coordinates
+     * @param {number} ndcX - Point X in NDC coordinates
+     * @param {number} ndcY - Point Y in NDC coordinates
+     * @param {Array} layers - Array of Layer objects to search
+     * @param {number} maxRadius - Maximum search radius in NDC coordinates
+     * @param {number|null} searchLayerId - Optional: search only in specific layer
+     * @returns {[number, number]|null} [ndcX, ndcY] of nearest vertex or null if not found
+     */
+    function findNearestVertexNdc(ndcX, ndcY, layers, maxRadius = 0.15, searchLayerId = null) {
+        let nearestNdc = null;
+        let nearestDistance = Infinity;
+
+        for (const layer of layers) {
+            if (searchLayerId !== null && layer.id !== searchLayerId) continue;
+            if (layer.vertices.length === 0) continue;
+
+            for (let i = 0; i < layer.vertices.length; i += 2) {
+                const vertexNdcX = layer.vertices[i];
+                const vertexNdcY = layer.vertices[i + 1];
+
+                const dx = ndcX - vertexNdcX;
+                const dy = ndcY - vertexNdcY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < maxRadius && dist < nearestDistance) {
+                    nearestDistance = dist;
+                    nearestNdc = [vertexNdcX, vertexNdcY];
+                }
+            }
+        }
+
+        return nearestNdc;
+    }
+
     class VertexEditor {
         constructor(config = {}) {
             // Canvas and WebGL
@@ -160,7 +276,16 @@
         updateVertexCount() {
             const currentLayer = this.getCurrentLayer();
             if (this.uiElements['vertexCount']) {
-                this.uiElements['vertexCount'].textContent = `Vertices: ${currentLayer ? currentLayer.vertices.length / 2 : 0}`;
+                if (!currentLayer) {
+                    this.uiElements['vertexCount'].textContent = 'Vertices: 0';
+                } else if (currentLayer.isIndexed) {
+                    const uniqueCount = currentLayer.vertices.length / 2;
+                    const indexCount = currentLayer.indices.length;
+                    this.uiElements['vertexCount'].textContent = `Vertices: ${indexCount} (${uniqueCount} unique)`;
+                } else {
+                    const flatCount = currentLayer.vertices.length / 2;
+                    this.uiElements['vertexCount'].textContent = `Vertices: ${flatCount} (flat format)`;
+                }
             }
         }
 
@@ -286,8 +411,10 @@
         pushPoint(clientX, clientY, ndcX, ndcY) {
             const currentLayer = this.getCurrentLayer();
             if (!currentLayer) return false;
-            currentLayer.vertices.push(ndcX, ndcY);
-            currentLayer.colors.push(this.selectedColor[0], this.selectedColor[1], this.selectedColor[2]);
+
+            // Use indexed representation - automatically deduplicates vertices
+            currentLayer.addVertexIndexed(ndcX, ndcY, this.selectedColor, 1e-6);
+
             this.lastPush = { x: clientX, y: clientY };
             this.updateVertexCount();
             return true;
@@ -303,10 +430,10 @@
         addPointFromEvent(e, onlyIfFarEnough = false) {
             const clientX = e.clientX;
             const clientY = e.clientY;
-            let [ndx, ndy] = VertexUtils.eventToNDC(e, this.canvas, this.snapToGrid, this.gridSize);
+            let [ndx, ndy] = eventToNDC(e, this.canvas, this.snapToGrid, this.gridSize);
 
             if (this.snapToVertex) {
-                const snappedNdc = VertexUtils.findNearestVertexNdc(ndx, ndy, this.layers, this.VERTEX_SNAP_RADIUS_NDC, this.currentLayerId);
+                const snappedNdc = findNearestVertexNdc(ndx, ndy, this.layers, this.VERTEX_SNAP_RADIUS_NDC, this.currentLayerId);
                 if (snappedNdc) {
                     [ndx, ndy] = snappedNdc;
                 }
@@ -321,12 +448,10 @@
         undoLast() {
             const currentLayer = this.getCurrentLayer();
             if (!currentLayer) return;
-            if (currentLayer.vertices.length >= 2) {
-                currentLayer.vertices.pop();
-                currentLayer.vertices.pop();
-                currentLayer.colors.pop();
-                currentLayer.colors.pop();
-                currentLayer.colors.pop();
+            if (currentLayer.indices.length > 0) {
+                currentLayer.removeLastVertexIndexed();
+                // Clean up orphaned vertices
+                currentLayer.compactGeometry();
             }
             this.updateVertexCount();
         }
@@ -334,29 +459,54 @@
         clearAll() {
             const currentLayer = this.getCurrentLayer();
             if (!currentLayer) return;
-            currentLayer.vertices.length = 0;
-            currentLayer.colors.length = 0;
+            currentLayer.vertices = new Float32Array();
+            currentLayer.colors = new Float32Array();
+            currentLayer.indices = new Uint32Array();
+            currentLayer.indexBuffer = null;
             this.updateVertexCount();
             this.lastPush = null;
         }
 
-        // Color mode
+        // Color mode - updated to work with indexed geometry
         findVerticesInArea(clientX, clientY, radius) {
-            return VertexUtils.findVerticesInAreaPixel(clientX, clientY, this.canvas, this.layers, radius, this.currentLayerId);
+            const currentLayer = this.getCurrentLayer();
+            if (!currentLayer || currentLayer.vertices.length === 0) return [];
+
+            const vertexIndices = [];
+            const rect = this.canvas.getBoundingClientRect();
+
+            // Iterate through unique vertices and find which are in area
+            for (let i = 0; i < currentLayer.vertices.length; i += 2) {
+                const [px, py] = ndcToPixel(
+                    currentLayer.vertices[i],
+                    currentLayer.vertices[i + 1],
+                    this.canvas
+                );
+                const dx = clientX - px;
+                const dy = clientY - py;
+                const d = Math.sqrt(dx * dx + dy * dy);
+
+                if (d <= radius) {
+                    vertexIndices.push(i / 2); // Unique vertex index
+                }
+            }
+
+            return vertexIndices;
         }
 
         colorVerticesInArea(clientX, clientY, color) {
-            const vertexIndices = this.findVerticesInArea(clientX, clientY, this.colorAreaRadius);
+            const uniqueVertexIndices = this.findVerticesInArea(clientX, clientY, this.colorAreaRadius);
             const currentLayer = this.getCurrentLayer();
             if (!currentLayer) return false;
 
-            vertexIndices.forEach(vertexIndex => {
-                const colorIndex = vertexIndex * 3;
+            // Update color for each unique vertex found in area
+            uniqueVertexIndices.forEach(uniqueVertexIdx => {
+                const colorIndex = uniqueVertexIdx * 3;
                 currentLayer.colors[colorIndex] = color[0];
                 currentLayer.colors[colorIndex + 1] = color[1];
                 currentLayer.colors[colorIndex + 2] = color[2];
             });
-            return vertexIndices.length > 0;
+            return uniqueVertexIndices.length > 0;
         }
 
         // File I/O
@@ -512,7 +662,7 @@
 
             // Draw vertex snapping feedback
             if (this.snapToVertex && this.snappedVertexNdc) {
-                const [px, py] = VertexUtils.ndcToPixel(this.snappedVertexNdc[0], this.snappedVertexNdc[1], this.canvas);
+                const [px, py] = ndcToPixel(this.snappedVertexNdc[0], this.snappedVertexNdc[1], this.canvas);
                 this.overlayContext.strokeStyle = '#00ff00';
                 this.overlayContext.lineWidth = 3;
                 this.overlayContext.setLineDash([5, 5]);
@@ -522,7 +672,7 @@
                 this.overlayContext.setLineDash([]);
 
                 if (this.lastMouseNdc) {
-                    const [cursorPx, cursorPy] = VertexUtils.ndcToPixel(this.lastMouseNdc[0], this.lastMouseNdc[1], this.canvas);
+                    const [cursorPx, cursorPy] = ndcToPixel(this.lastMouseNdc[0], this.lastMouseNdc[1], this.canvas);
                     this.overlayContext.strokeStyle = 'rgba(0, 255, 0, 0.5)';
                     this.overlayContext.lineWidth = 1;
                     this.overlayContext.setLineDash([2, 2]);
@@ -540,9 +690,10 @@
             const currentLayer = this.getCurrentLayer();
             if (!currentLayer || !currentLayer.visible) return;
 
+
             for (let i = 0; i < currentLayer.vertices.length; i += 2) {
                 const ndx = currentLayer.vertices[i], ndy = currentLayer.vertices[i + 1];
-                const [px, py] = VertexUtils.ndcToPixel(ndx, ndy, this.canvas);
+                const [px, py] = ndcToPixel(ndx, ndy, this.canvas);
                 let color = 'rgba(54, 71, 148, 0.68)';
                 if (i === 0) color = '#24d64aff';
                 else if (i === currentLayer.vertices.length - 2) color = '#f11f1fff';
@@ -739,7 +890,7 @@
                 const clientX = e.clientX - rect.left;
                 const clientY = e.clientY - rect.top;
 
-                const [ndcX, ndcY] = VertexUtils.eventToNDC(e, this.canvas, this.snapToGrid, this.gridSize);
+                const [ndcX, ndcY] = eventToNDC(e, this.canvas, this.snapToGrid, this.gridSize);
                 this.lastMouseNdc = [ndcX, ndcY];
 
                 if (this.colorMode) {
@@ -751,7 +902,7 @@
                 }
 
                 if (this.snapToVertex) {
-                    this.snappedVertexNdc = VertexUtils.findNearestVertexNdc(ndcX, ndcY, this.layers, this.VERTEX_SNAP_RADIUS_NDC, this.currentLayerId);
+                    this.snappedVertexNdc = findNearestVertexNdc(ndcX, ndcY, this.layers, this.VERTEX_SNAP_RADIUS_NDC, this.currentLayerId);
                 } else {
                     this.snappedVertexNdc = null;
                 }
