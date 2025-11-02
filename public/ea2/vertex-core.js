@@ -449,11 +449,10 @@ void main(){
         return layer.program;
     }
 
-    // File I/O - Always export as indexed format
-    // Simplified format: indices array presence indicates indexed vs flat format
+    // File I/O - Export in optimal format (indexed if it saves space, flat otherwise)
 
     function exportVerticesJSON(layers, period = 30.0) {
-        const layersData = layers.map(layer => {
+        const layersData = layers.map((layer, layerIdx) => {
             const uniqueVertexCount = layer.vertices.length / 2;
             const indexCount = layer.indices.length;
 
@@ -466,7 +465,7 @@ void main(){
                 lineWidth: Number(layer.lineWidth) || 1,
             };
 
-            // Always export as indexed: unique vertices + indices
+            // Convert vertices and colors arrays
             const verticesArray = [];
             for (let i = 0; i < layer.vertices.length; i += 2) {
                 verticesArray.push([layer.vertices[i], layer.vertices[i + 1]]);
@@ -477,12 +476,42 @@ void main(){
                 colorsArray.push([layer.colors[i], layer.colors[i + 1], layer.colors[i + 2]]);
             }
 
-            layerData.vertices = verticesArray;
-            layerData.colors = colorsArray;
+            // Decide format: export as flat if no savings or if not indexed
+            if (layer.isIndexed && indexCount > 0) {
+                // Calculate memory savings
+                const flatSize = indexCount * 2 * 4 + indexCount * 3 * 4; // vertices + colors in flat
+                const indexedSize = uniqueVertexCount * 2 * 4 + uniqueVertexCount * 3 * 4 + indexCount * 4; // indexed
+                const savingsBytes = flatSize - indexedSize;
+                const savingsPercent = ((flatSize - indexedSize) / flatSize * 100);
 
-            // Export indices as flat array - presence indicates indexed format
-            if (indexCount > 0) {
-                layerData.indices = Array.from(layer.indices);
+                // Export as indexed only if savings are not negative
+                if (savingsPercent >= 0) {
+                    // Export indexed format
+                    layerData.vertices = verticesArray;
+                    layerData.colors = colorsArray;
+                    layerData.indices = Array.from(layer.indices);
+                    console.log(`Layer ${layerIdx} "${layer.name}": Exported as INDEXED - Saved ${savingsBytes} bytes (${savingsPercent.toFixed(2)}% compression)`);
+                } else {
+                    // Export as flat format - expand indexed to flat
+                    const flatData = IndexManager.toFlat(layer.vertices, layer.colors, layer.indices);
+                    const flatVertices = [];
+                    for (let i = 0; i < flatData.vertices.length; i += 2) {
+                        flatVertices.push([flatData.vertices[i], flatData.vertices[i + 1]]);
+                    }
+                    const flatColors = [];
+                    for (let i = 0; i < flatData.colors.length; i += 3) {
+                        flatColors.push([flatData.colors[i], flatData.colors[i + 1], flatData.colors[i + 2]]);
+                    }
+                    layerData.vertices = flatVertices;
+                    layerData.colors = flatColors;
+                    // No indices = flat format
+                    console.log(`Layer ${layerIdx} "${layer.name}": Exported as FLAT - No savings benefit (${savingsPercent.toFixed(2)}%)`);
+                }
+            } else {
+                // Already flat or empty - export as-is
+                layerData.vertices = verticesArray;
+                layerData.colors = colorsArray;
+                console.log(`Layer ${layerIdx} "${layer.name}": Exported as FLAT - Empty or non-indexed layer`);
             }
 
             return layerData;
@@ -491,7 +520,6 @@ void main(){
         const out = {
             layers: layersData,
             period: period,
-            format: 'indexed-v2', // Simplified format: indices indicate indexation
         };
 
         return out;
