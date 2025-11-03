@@ -152,7 +152,16 @@
 
             this.gl = this.canvas.getContext('webgl2');
             if (!this.gl) {
-                console.error('WebGL2 not available');
+                console.error('WebGL2 not available. Please use a browser with WebGL2 support, or update your graphics drivers.');
+                // Show user-friendly error message
+                if (this.canvas.parentElement) {
+                    const errorMsg = document.createElement('div');
+                    errorMsg.style.cssText = 'padding: 20px; background: #fee; color: #c33; border: 1px solid #fcc; border-radius: 4px; font-family: Arial, sans-serif;';
+                    errorMsg.innerHTML = '<strong>WebGL2 not supported</strong><br>Your browser does not support WebGL2. Please try:<ul style="margin: 10px 0;"><li>Enable webgl2 in browser settings</li><li>Update your graphics drivers</li><li>Try a different browser</li></ul>';
+                    this.canvas.parentElement.insertBefore(errorMsg, this.canvas);
+                    // remove canvas to avoid confusion
+                    this.canvas.remove();
+                }
                 return;
             }
 
