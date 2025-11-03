@@ -14,24 +14,39 @@
     /**
      * Convert mouse event coordinates to WebGL Normalized Device Coordinates
      * @param {MouseEvent} e - Mouse event
-     * @param {HTMLCanvasElement} canvas - Canvas element
+     * @param {HTMLCanvasElement} canvas - Canvas element (main canvas for NDC calculation)
      * @param {boolean} snapToGrid - Enable grid snapping
-     * @param {number} gridSize - Grid cell size in pixels
+     * @param {number} gridColumns - Number of grid columns (scales grid with canvas size)
      * @returns {[number, number]} [ndcX, ndcY] in range [-1, 1]
      */
-    function eventToNDC(e, canvas, snapToGrid = false, gridSize = 20) {
+    function eventToNDC(e, canvas, snapToGrid = false, gridColumns = 45) {
         const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+
+        // Use display dimensions for proportion calculation
         let x = (e.clientX - rect.left) / rect.width;
         let y = (e.clientY - rect.top) / rect.height;
 
         // Apply grid snapping if enabled
+        // Grid snapping based on columns - scales with canvas size
         if (snapToGrid) {
-            const pixelX = x * rect.width;
-            const pixelY = y * rect.height;
-            const snappedPixelX = Math.round(pixelX / gridSize) * gridSize;
-            const snappedPixelY = Math.round(pixelY / gridSize) * gridSize;
-            x = snappedPixelX / rect.width;
-            y = snappedPixelY / rect.height;
+            const canvasBufferWidth = canvas.width / dpr;
+            const canvasBufferHeight = canvas.height / dpr;
+
+            // Calculate column and row size based on canvas dimensions
+            const cellWidth = canvasBufferWidth / gridColumns;
+            // Maintain aspect ratio for rows
+            const cellHeight = cellWidth;
+
+            const pixelX = x * canvasBufferWidth;
+            const pixelY = y * canvasBufferHeight;
+
+            // Snap to grid cells
+            const snappedPixelX = Math.round(pixelX / cellWidth) * cellWidth;
+            const snappedPixelY = Math.round(pixelY / cellHeight) * cellHeight;
+
+            x = snappedPixelX / canvasBufferWidth;
+            y = snappedPixelY / canvasBufferHeight;
         }
 
         // NDC -1..1
@@ -162,7 +177,7 @@
             this.clearColor = [0.98, 0.98, 1.0, 1.0];
             this.showOverlay = false;
             this.snapToGrid = true;
-            this.gridSize = 10;
+            this.gridColumns = 45; // Number of columns (scales with canvas size)
             this.snapToVertex = false;
             this.colorMode = false;
             this.selectedColor = [1.0, 0.0, 0.0];
@@ -430,7 +445,7 @@
         addPointFromEvent(e, onlyIfFarEnough = false) {
             const clientX = e.clientX;
             const clientY = e.clientY;
-            let [ndx, ndy] = eventToNDC(e, this.canvas, this.snapToGrid, this.gridSize);
+            let [ndx, ndy] = eventToNDC(e, this.canvas, this.snapToGrid, this.gridColumns);
 
             if (this.snapToVertex) {
                 const snappedNdc = findNearestVertexNdc(ndx, ndy, this.layers, this.VERTEX_SNAP_RADIUS_NDC, this.currentLayerId);
@@ -627,22 +642,34 @@
 
             // Draw grid if snap to grid is enabled
             if (this.snapToGrid) {
-                const rect = this.canvas.getBoundingClientRect();
+                // Use canvas buffer dimensions for precise grid calculation
+                const canvasWidth = this.overlayCanvas.width / dpr;
+                const canvasHeight = this.overlayCanvas.height / dpr;
+
+                // Calculate cell dimensions based on fixed column count
+                const cellWidth = canvasWidth / this.gridColumns;
+                const cellHeight = cellWidth; // Square cells for consistent snapping
+
                 this.overlayContext.strokeStyle = 'rgba(150, 150, 150, 0.3)';
                 this.overlayContext.lineWidth = 1;
                 this.overlayContext.setLineDash([1, 1]);
 
-                for (let x = 0; x <= rect.width; x += this.gridSize) {
+                // Draw vertical grid lines
+                for (let col = 0; col <= this.gridColumns; col++) {
+                    const x = col * cellWidth;
                     this.overlayContext.beginPath();
                     this.overlayContext.moveTo(x, 0);
-                    this.overlayContext.lineTo(x, rect.height);
+                    this.overlayContext.lineTo(x, canvasHeight);
                     this.overlayContext.stroke();
                 }
 
-                for (let y = 0; y <= rect.height; y += this.gridSize) {
+                // Draw horizontal grid lines
+                const gridRows = Math.ceil(canvasHeight / cellHeight);
+                for (let row = 0; row <= gridRows; row++) {
+                    const y = row * cellHeight;
                     this.overlayContext.beginPath();
                     this.overlayContext.moveTo(0, y);
-                    this.overlayContext.lineTo(rect.width, y);
+                    this.overlayContext.lineTo(canvasWidth, y);
                     this.overlayContext.stroke();
                 }
 
@@ -690,7 +717,7 @@
             const currentLayer = this.getCurrentLayer();
             if (!currentLayer || !currentLayer.visible) return;
 
-
+            // Draw vertices
             for (let i = 0; i < currentLayer.vertices.length; i += 2) {
                 const ndx = currentLayer.vertices[i], ndy = currentLayer.vertices[i + 1];
                 const [px, py] = ndcToPixel(ndx, ndy, this.canvas);
@@ -745,8 +772,8 @@
 
             if (this.uiElements.gridSize) {
                 this.uiElements.gridSize.addEventListener('input', () => {
-                    this.gridSize = Number(this.uiElements.gridSize.value);
-                    if (this.uiElements.gridSizeVal) this.uiElements.gridSizeVal.textContent = this.uiElements.gridSize.value;
+                    this.gridColumns = Number(this.uiElements.gridSize.value);
+                    if (this.uiElements.gridSizeVal) this.uiElements.gridSizeVal.textContent = this.uiElements.gridSize.value + ' columns';
                 });
             }
 
@@ -890,7 +917,7 @@
                 const clientX = e.clientX - rect.left;
                 const clientY = e.clientY - rect.top;
 
-                const [ndcX, ndcY] = eventToNDC(e, this.canvas, this.snapToGrid, this.gridSize);
+                const [ndcX, ndcY] = eventToNDC(e, this.canvas, this.snapToGrid, this.gridColumns);
                 this.lastMouseNdc = [ndcX, ndcY];
 
                 if (this.colorMode) {
@@ -944,7 +971,7 @@
             this.updateLayerUI();
             this.updateTimeDisplay();
             this.selectedColor = VertexUtils.hexToRgb(this.uiElements.vertexColor?.value || '#ff0000');
-            if (this.uiElements.gridSizeVal) this.uiElements.gridSizeVal.textContent = this.gridSize;
+            if (this.uiElements.gridSizeVal) this.uiElements.gridSizeVal.textContent = this.gridColumns + ' columns';
             if (this.uiElements.colorRadiusVal) this.uiElements.colorRadiusVal.textContent = this.colorAreaRadius + 'px';
             if (this.uiElements.bgOpacityVal) this.uiElements.bgOpacityVal.textContent = Math.round(this.backgroundOpacity * 100) + '%';
         }

@@ -25,9 +25,14 @@ function initEditor() {
     editor.initializeDisplay();
     editor.start();
 
-    // Toggle play/pause on 'a' key press
+    // Toggle play/pause on 'a' key press (only when not typing in input)
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'a') {
+        // Don't trigger if user is typing in input, textarea, or contenteditable element
+        const isTextInput = document.activeElement.tagName === 'INPUT' ||
+            document.activeElement.tagName === 'TEXTAREA' ||
+            document.activeElement.contentEditable === 'true';
+
+        if (event.key === 'a' && !isTextInput) {
             editor.togglePlayPause();
         }
     });
@@ -88,9 +93,14 @@ function initFullscreenManager() {
         });
     }
 
-    // Also toggle fullscreen on pressing 'F' key
+    // Also toggle fullscreen on pressing 'F' key (only when not typing in input)
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'f' || event.key === 'F') {
+        // Don't trigger if user is typing in input, textarea, or contenteditable element
+        const isTextInput = document.activeElement.tagName === 'INPUT' ||
+            document.activeElement.tagName === 'TEXTAREA' ||
+            document.activeElement.contentEditable === 'true';
+
+        if ((event.key === 'f' || event.key === 'F') && !isTextInput) {
             fullscreenManager.toggleFullscreen();
         }
     });
