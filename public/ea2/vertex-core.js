@@ -699,9 +699,11 @@ void main(){
     }
 
     function resizeCanvasToDisplaySize(canvas) {
-        const dpr = window.devicePixelRatio || 1;
-        const width = Math.round(canvas.clientWidth * dpr);
-        const height = Math.round(canvas.clientHeight * dpr);
+        // Get the display size of the canvas element (in CSS pixels)
+        // Do NOT multiply by devicePixelRatio to avoid zoom artifacts
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+
         if (canvas.width !== width || canvas.height !== height) {
             canvas.width = width;
             canvas.height = height;
