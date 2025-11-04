@@ -640,6 +640,10 @@
 
         draw() {
             VertexCore.resizeCanvasToDisplaySize(this.canvas);
+            // Ensure background image canvas is also resized
+            VertexCore.resizeCanvasToDisplaySize(this.backgroundImageCanvas);
+            // Redraw background image at new size
+            this.drawBackgroundImage();
             VertexCore.draw(this.gl, this.layers, this.clearColor, this.vbo, this.colorBuffer, this.uTime, this.period, this.canvas);
         }
 
