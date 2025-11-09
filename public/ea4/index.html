@@ -1,0 +1,372 @@
+<!DOCTYPE html5>
+<html>
+
+<body>
+    <canvas id="canvas" width="500" height="500"></canvas>
+    <script>
+        const CONFIG = {
+            gl: { clearColor: [0.95, 0.95, 0.95, 1] },
+            light: { direction: [-2.0, 2.0, 0.8] },
+            shapes: {
+                bell: {
+                    n: 64,
+                    m: 32,
+                    radiusScale: 0.75,
+                    heightRange: 1.4,
+                    heightMin: -0.7,
+                    minRadius: 0.02,
+                    hollowStart: 4,
+                    hollowMidRatio: 0.5,
+                    hollowEndRatio: 1 / 8
+                },
+                cylinders: {
+                    side: { count: 2, radius: 0.04, height: 1.4, distance: 0.4 },
+                    top: { radius: 0.5, height: 0.1, offsetY: 0.75 },
+                    bottom: { radius: 0.5, height: 0.1, offsetY: -0.75 }
+                },
+            },
+            colors: {
+                sand: [1, 0.9, 0.2, 1],
+                glass: [0.6, 0.6, 0.95, 1],
+                woodBrown: [0.60, 0.35, 0.15, 1],
+                woodLight: [0.85, 0.65, 0.4, 1]
+            }
+        };
+
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('experimental-webgl');
+
+        // Setup WebGL
+        function setup() {
+            const [r, g, b, a] = CONFIG.gl.clearColor;
+            gl.clearColor(r, g, b, a);
+            gl.frontFace(gl.CCW);
+            gl.enable(gl.CULL_FACE);
+            gl.cullFace(gl.BACK);
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LEQUAL);
+            gl.enable(gl.POLYGON_OFFSET_FILL);
+            gl.polygonOffset(1.0, 1.0);
+        }
+
+        function compileShader(source, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            return shader;
+        }
+
+        function createShaderProgram(vsSource, fsSource) {
+            const vs = compileShader(vsSource, gl.VERTEX_SHADER);
+            const fs = compileShader(fsSource, gl.FRAGMENT_SHADER);
+            const program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            gl.bindAttribLocation(program, 0, "pos");
+            gl.linkProgram(program);
+            return program;
+        }
+
+        // Shader sources
+        const vsSource = '' +
+            'attribute vec3 pos;' +
+            'attribute vec4 col;' +
+            'attribute vec3 normal;' +
+            'varying vec4 color;' +
+            'varying vec3 vNormal;' +
+            'void main(){' +
+            'color = col;' +
+            'vNormal = normalize(normal);' +
+            'gl_Position = vec4(pos, 1);' +
+            '}';
+
+        const fsSource = (() => {
+            const [x, y, z] = CONFIG.light.direction;
+            return 'precision mediump float;' +
+                'varying vec4 color;' +
+                'varying vec3 vNormal;' +
+                'void main() {' +
+                `vec3 lightDir = normalize(vec3(${x}, ${y}, ${z}));` +
+                'float brightness = dot(vNormal, lightDir);' +
+                'brightness = brightness * 0.5 + 0.5;' +
+                'gl_FragColor = vec4(color.rgb * brightness, color.a);' +
+                '}';
+        })();
+
+        const prog = createShaderProgram(vsSource, fsSource);
+        gl.useProgram(prog);
+
+        function normalizeVector(nx, ny, nz) {
+            const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+            return [nx / len, ny / len, nz / len];
+        }
+
+        function setVertexPosition(vertices, index, x, y, z) {
+            vertices[index * 3] = x;
+            vertices[index * 3 + 1] = y;
+            vertices[index * 3 + 2] = z;
+        }
+
+        function setVertexNormal(normals, index, nx, ny, nz) {
+            const [nx_norm, ny_norm, nz_norm] = normalizeVector(nx, ny, nz);
+            normals[index * 3] = nx_norm;
+            normals[index * 3 + 1] = ny_norm;
+            normals[index * 3 + 2] = nz_norm;
+        }
+
+        function addLineIndex(indices, counter, v1, v2) {
+            indices[counter.val++] = v1;
+            indices[counter.val++] = v2;
+        }
+
+        function addTriangleIndices(indices, counter, v1, v2, v3) {
+            indices[counter.val++] = v1;
+            indices[counter.val++] = v2;
+            indices[counter.val++] = v3;
+        }
+
+        function createVertexDataBell(n = 64, m = 32) {
+            const cfg = CONFIG.shapes.bell;
+            const vertices = new Float32Array(3 * (n + 1) * (m + 1));
+            const normals = new Float32Array(3 * (n + 1) * (m + 1));
+            const indicesLines = new Uint16Array(2 * 2 * n * m);
+            const indicesTris = new Uint16Array(3 * 2 * n * m);
+
+            const dt = 2 * Math.PI / n;
+            const dv = cfg.heightRange / m;
+            const iIndex = { val: 0 };
+            const iTris = { val: 0 };
+
+            for (let i = 0, t = 0; i <= n; i++, t += dt) {
+                for (let j = 0, v = cfg.heightMin; j <= m; j++, v += dv) {
+                    const iVertex = i * (m + 1) + j;
+
+                    // Hourglass shape
+                    const radius = Math.abs(v * cfg.radiusScale);
+                    const exponential = Math.exp(-v * v);
+                    let r = radius * exponential;
+                    r = Math.max(cfg.minRadius, r);
+
+                    const x = r * Math.cos(t);
+                    const y = v;
+                    const z = r * Math.sin(t);
+
+                    setVertexPosition(vertices, iVertex, x, y, z);
+                    setVertexNormal(normals, iVertex, Math.cos(t), exponential * (cfg.radiusScale - 2 * v * v * cfg.radiusScale), Math.sin(t));
+
+                    // Line indices
+                    if (j > 0 && i > 0) {
+                        addLineIndex(indicesLines, iIndex, iVertex - 1, iVertex);
+                        addLineIndex(indicesLines, iIndex, iVertex - (m + 1), iVertex);
+                    }
+                    if (j === 0 && i > 0) {
+                        addLineIndex(indicesLines, iIndex, iVertex - (m + 1), iVertex);
+                    }
+
+                    // Triangle indices with hollow sections
+                    if (j > 0 && i > 0) {
+                        const hollowMidIndex = m * cfg.hollowMidRatio;
+                        const hollowEndIndex = m - m * cfg.hollowEndRatio;
+                        const isHollow = (j > cfg.hollowStart && j < hollowMidIndex) || (j > hollowMidIndex && j > hollowEndIndex);
+
+                        if (!isHollow) {
+                            addTriangleIndices(indicesTris, iTris, iVertex, iVertex - 1, iVertex - (m + 1));
+                            addTriangleIndices(indicesTris, iTris, iVertex - 1, iVertex - (m + 1) - 1, iVertex - (m + 1));
+                        }
+                    }
+                }
+            }
+
+            return {
+                vertices,
+                normals,
+                indicesLines: indicesLines.subarray(0, iIndex.val),
+                indicesTris: indicesTris.subarray(0, iTris.val)
+            };
+        }
+
+        function createVertexDataHelix() {
+            var loopCount = 3;
+            var n = 32;
+            var m = n * loopCount;
+            // Positions.
+            const vertices = new Float32Array(m * 3);
+            // Index data for Linestrip.
+            const indices = new Uint16Array(m);
+
+            const dt = 2 * Math.PI / n;
+
+            let iIndex = 0;
+
+            for (var i = 0; i < m; i++) {
+                var t = i * dt;
+                // Parametric equations.
+                var x = Math.cos(t) * 0.8;
+                var y = (t / (2 * Math.PI) - loopCount / 2) / 2;
+                var z = Math.sin(t) * 0.8;
+
+                indices[iIndex] = iIndex;
+
+                // Set vertex positions.
+                vertices[iIndex * 3] = x;
+                vertices[iIndex * 3 + 1] = y;
+                vertices[iIndex * 3 + 2] = z;
+
+                iIndex++;
+            }
+
+            return [vertices, indices];
+        }
+
+        function createVertexDataCylinder(offsetX, offsetY, offsetZ, radius = 0.04, height = 1.4, radialSegments = 12, heightSegments = 1) {
+            const n = radialSegments;
+            const m = heightSegments;
+            const vertices = new Float32Array(3 * (n + 1) * (m + 1));
+            const normals = new Float32Array(3 * (n + 1) * (m + 1));
+            const indicesLines = new Uint16Array(2 * 2 * n * m);
+            const indicesTris = new Uint16Array(3 * 2 * n * m);
+
+            const dt = 2 * Math.PI / n;
+            const dh = height / m;
+            const iIndex = { val: 0 };
+            const iTris = { val: 0 };
+
+            for (let i = 0, t = 0; i <= n; i++, t += dt) {
+                for (let j = 0, h = -height / 2; j <= m; j++, h += dh) {
+                    const iVertex = i * (m + 1) + j;
+                    const x = radius * Math.cos(t) + offsetX;
+                    const y = h + offsetY;
+                    const z = radius * Math.sin(t) + offsetZ;
+
+                    setVertexPosition(vertices, iVertex, x, y, z);
+                    setVertexNormal(normals, iVertex, Math.cos(t), 0, Math.sin(t));
+
+                    // Line indices
+                    if (j > 0 && i > 0) {
+                        addLineIndex(indicesLines, iIndex, iVertex - 1, iVertex);
+                        addLineIndex(indicesLines, iIndex, iVertex - (m + 1), iVertex);
+                    }
+                    if (j === 0 && i > 0) {
+                        addLineIndex(indicesLines, iIndex, iVertex - (m + 1), iVertex);
+                    }
+
+                    // Triangle indices
+                    if (j > 0 && i > 0) {
+                        addTriangleIndices(indicesTris, iTris, iVertex, iVertex - 1, iVertex - (m + 1));
+                        addTriangleIndices(indicesTris, iTris, iVertex - 1, iVertex - (m + 1) - 1, iVertex - (m + 1));
+                    }
+                }
+            }
+
+            return {
+                vertices,
+                normals,
+                indicesLines: indicesLines.subarray(0, iIndex.val),
+                indicesTris: indicesTris.subarray(0, iTris.val)
+            };
+        }
+
+        class MeshRenderer {
+            constructor(meshData) {
+                this.vertices = meshData.vertices;
+                this.normals = meshData.normals;
+                this.indicesTris = meshData.indicesTris;
+                this.indicesLines = meshData.indicesLines;
+
+                this.vboPos = gl.createBuffer();
+                this.vboNormal = gl.createBuffer();
+                this.iboTris = gl.createBuffer();
+                this.iboLines = gl.createBuffer();
+
+                this.setupBuffers();
+            }
+
+            setupBuffers() {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vboPos);
+                gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vboNormal);
+                gl.bufferData(gl.ARRAY_BUFFER, this.normals, gl.STATIC_DRAW);
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iboTris);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indicesTris, gl.STATIC_DRAW);
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iboLines);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indicesLines, gl.STATIC_DRAW);
+            }
+
+            bindAttributes() {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vboPos);
+                const posAttrib = gl.getAttribLocation(prog, 'pos');
+                gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(posAttrib);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vboNormal);
+                const normalAttrib = gl.getAttribLocation(prog, 'normal');
+                gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(normalAttrib);
+            }
+
+            renderTriangles(color) {
+                this.bindAttributes();
+                const colAttrib = gl.getAttribLocation(prog, 'col');
+                gl.vertexAttrib4f(colAttrib, ...color);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iboTris);
+                gl.drawElements(gl.TRIANGLES, this.indicesTris.length, gl.UNSIGNED_SHORT, 0);
+            }
+
+            renderLines(color) {
+                this.bindAttributes();
+                const colAttrib = gl.getAttribLocation(prog, 'col');
+                gl.vertexAttrib4f(colAttrib, ...color);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iboLines);
+                gl.drawElements(gl.LINES, this.indicesLines.length, gl.UNSIGNED_SHORT, 0);
+            }
+        }
+
+        // Start
+        setup();
+
+        // Create geometry
+        const bellData = createVertexDataBell(...Object.values(CONFIG.shapes.bell));
+        const bellRenderer = new MeshRenderer(bellData);
+
+        // Create cylinders
+        const cylinders = [];
+
+        // Side cylinders in a circle
+        const sideCyl = CONFIG.shapes.cylinders.side;
+        for (let c = 0; c < sideCyl.count; c++) {
+            const angle = (c / sideCyl.count) * 2 * Math.PI;
+            const offsetX = Math.cos(angle) * sideCyl.distance;
+            const offsetZ = Math.sin(angle) * sideCyl.distance;
+            const cylData = createVertexDataCylinder(offsetX, 0, offsetZ, sideCyl.radius, sideCyl.height);
+            cylinders.push(new MeshRenderer(cylData));
+        }
+
+        // Top and bottom cylinders
+        const topCyl = CONFIG.shapes.cylinders.top;
+        const bottomCyl = CONFIG.shapes.cylinders.bottom;
+
+        const cylDataTop = createVertexDataCylinder(0, topCyl.offsetY, 0, topCyl.radius, topCyl.height);
+        cylinders.push(new MeshRenderer(cylDataTop));
+
+        const cylDataBottom = createVertexDataCylinder(0, bottomCyl.offsetY, 0, bottomCyl.radius, bottomCyl.height);
+        cylinders.push(new MeshRenderer(cylDataBottom));
+
+        // Render
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Bell triangles and lines
+        bellRenderer.renderTriangles(CONFIG.colors.sand);
+        bellRenderer.renderLines(CONFIG.colors.glass);
+
+        // Cylinder triangles and lines
+        cylinders.forEach(cyl => {
+            cyl.renderTriangles(CONFIG.colors.woodBrown);
+            cyl.renderLines(CONFIG.colors.woodLight);
+        });
+    </script>
+</body>
+
+</html>
