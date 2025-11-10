@@ -1,11 +1,260 @@
-<!DOCTYPE html5>
-<html>
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>EA4 | Parametrisierte Flächen | Pascal Hürten</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../ea2/style.css">
+    <style>
+        .math-formula {
+            background: #f5f5f5;
+            padding: 12px;
+            margin: 10px 0;
+            border-left: 4px solid #0066cc;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .shape-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .shape-section h4 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+
+        .parameter-list {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .parameter-list li {
+            margin: 6px 0;
+        }
+    </style>
+</head>
 
 <body>
-    <canvas id="canvas" width="500" height="500"></canvas>
+    <main>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="../index.html">← Zurück zur Übersicht</a>
+        </nav>
+
+        <h1>EA4 - Parametrisierte Flächen - Pascal Hürten</h1>
+
+        <section id="viewer" aria-labelledby="viewer-heading">
+            <h2 id="viewer-heading">Sanduhr mit animiertem Sand</h2>
+
+            <div id="canvas-wrap" style="text-align: center; margin: 20px 0;">
+                <canvas id="canvas" width="900" height="900"
+                    style="border: 1px solid #ccc; border-radius: 4px; max-width: 100%; height: auto;"></canvas>
+            </div>
+        </section>
+
+        <section id="doc">
+            <h2>Dokumentation</h2>
+
+            <p>Diese Aufgabe implementiert parametrisierte 3D-Flächen in WebGL. Die Szene zeigt eine Sanduhr mit drei
+                verschiedenen parametrisierten Geometrien:</p>
+
+            <!-- SANDUHR -->
+            <div class="shape-section">
+                <h3>1. Sanduhr (Hourglass)</h3>
+                <h4>Mathematische Parametrisierung</h4>
+                <p>Die Sanduhr wird durch eine parametrische Rotationsfläche erzeugt:</p>
+                <div class="math-formula">
+                    x(t,v) = r(v) · cos(t)<br>
+                    y(t,v) = v<br>
+                    z(t,v) = r(v) · sin(t)<br>
+                    <br>
+                    mit:<br>
+                    r(v) = |v| · radiusScale · e^(-v²)<br>
+                    t ∈ [0, 2π] (Rotationswinkel)<br>
+                    v ∈ [-0.7, 0.7] (vertikale Höhe)
+                </div>
+
+                <h4>Parameter:</h4>
+                <ul class="parameter-list">
+                    <li><strong>n = 64</strong> – Segmente um den Umfang (Auflösung azimutaler Winkel)</li>
+                    <li><strong>m = 32</strong> – Segmente vertikal (Auflösung Höhe)</li>
+                    <li><strong>radiusScale = 0.75</strong> – Skalierungsfaktor für den Radius</li>
+                    <li><strong>heightRange = 1.4</strong> – Gesamthöhe</li>
+                    <li><strong>heightMin = -0.7</strong> – Minimale Höhe</li>
+                    <li><strong>minRadius = 0.02</strong> – Minimum-Radius am Engpass</li>
+                </ul>
+
+                <h4>Besonderheiten:</h4>
+                <ul>
+                    <li>Exponentialfunktion e^(-v²) erzeugt die Engstelle in der Mitte</li>
+                    <li>Nur Teile der Fläche werden gerendert, um so den Sand darzustellen der im durchsichtigen Glas
+                        liegt, wobei die Durchsictigkeit durch die Nicht-Generierung von Dreiecken gefaket wird</li>
+                </ul>
+            </div>
+
+            <!-- SAND WAVES -->
+            <div class="shape-section">
+                <h3>2. Animierte Sandfläche</h3>
+                <h4>Mathematische Parametrisierung</h4>
+                <p>Eine sich über Zeit verändernde Röhren-Fläche, die den fließenden Sand darstellt:</p>
+                <div class="math-formula">
+                    baseWidth(v) = 0.005 + v · 0.03<br>
+                    ripple(t,time) = sin(t - time · 3.5) · 0.8<br>
+                    <br>
+                    r(t,v,time) = baseWidth(v) · (1.0 + ripple(t,time))<br>
+                    <br>
+                    x(t,v,time) = r(t,v,time) · cos(t) · sin(t)<br>
+                    y(t,v,time) = -v<br>
+                    z(t,v,time) = r(t,v,time) · sin(t) · cos(-t)<br>
+                    <br>
+                    mit:<br>
+                    t ∈ [0, 2π] (Winkel um die Röhre)<br>
+                    v ∈ [0, 0.525] (vertikale Position von oben nach unten)<br>
+                    time = Sekunden seit Programmstart
+                </div>
+
+                <h4>Parameter:</h4>
+                <ul class="parameter-list">
+                    <li><strong>n = 24</strong> – Anzahl der Segmente um den Umfang der Röhre</li>
+                    <li><strong>m = 20</strong> – Anzahl der Segmente von oben nach unten</li>
+                    <li><strong>maxHeight = 0.525</strong> – Höhe des Sandes (halbe Sanduhr-Höhe)</li>
+                    <li><strong>baseWidth</strong> – Breite wird größer: von 0.005 oben zu 0.035 unten</li>
+                    <li><strong>ripple-Stärke = 0.8</strong> – Wie stark die Wellen sichtbar sind</li>
+                </ul>
+
+                <h4>Wie es funktioniert:</h4>
+                <ul>
+                    <li>Kombination aus Sinus und Kosinuswelle erzeugen die Wellen auf der Oberfläche der Sandröhre</li>
+                    <li>Die Welle bewegt sich nach unten mit der Zeit (negative Zeit erzeugt Abwärtsbewegung)</li>
+                </ul>
+            </div>
+
+            <!-- SÄULEN -->
+            <div class="shape-section">
+                <h3>3. Stützende Säulen</h3>
+                <h4>Mathematische Parametrisierung</h4>
+                <p>Vier dünne Säulen die spiralförmig um die Sanduhr herum laufen:</p>
+                <div class="math-formula">
+                    rotation_angle = initial_angle + heightProgress · bendRotations · 2π<br>
+                    <br>
+                    circleX = cos(rotation_angle) · distFromCenter<br>
+                    circleZ = sin(rotation_angle) · distFromCenter<br>
+                    <br>
+                    x(t,h) = radius · cos(t) + circleX<br>
+                    y(t,h) = h<br>
+                    z(t,h) = radius · sin(t) + circleZ<br>
+                    <br>
+                    mit:<br>
+                    t ∈ [0, 2π] (Winkel um die Säule)<br>
+                    h ∈ [-height/2, height/2] (vertikale Position)
+                </div>
+
+                <h4>Parameter:</h4>
+                <ul class="parameter-list">
+                    <li><strong>radius = 0.04</strong> – Durchmesser der Säule</li>
+                    <li><strong>height = 1.4</strong> – Höhe der Säule (so hoch wie die Sanduhr)</li>
+                    <li><strong>Anzahl = 4</strong> – Vier Säulen im Kreis um die Sanduhr</li>
+                    <li><strong>bendRotations = 0.32</strong> – Die Säule dreht sich 0.32 mal um die Sanduhr herum (von
+                        oben bis unten)</li>
+                </ul>
+
+                <h4>Wie es funktioniert:</h4>
+                <ul>
+                    <li>Jede Säule ist eigentlich ein dünner Zylinder, die im Kreis um die Sanduhr versetzt sind.</li>
+                    <li>Die Höhensegmente werden im Kreis versetzt, sodass sie sich spiralförmig um die Sanduhr winden.
+                    </li>
+                    <li>Der Parameter bendRotations steuert wie viele Umdrehungen die Säule macht</li>
+                </ul>
+            </div>
+
+            <!-- DECKEL -->
+            <div class="shape-section">
+                <h3>4. Deckel</h3>
+                <h4>Mathematische Parametrisierung</h4>
+                <p>Zwei Zylinder, mit abgeflachten Kanten, die oben und unten an der Sanduhr sitzen:</p>
+                <div class="math-formula">
+                    r = radius wenn in der Mitte<br>
+                    r = radius · bevelRatio wenn am Rand<br>
+                    <br>
+                    x(t,h) = r · cos(t)<br>
+                    y(t,h) = h + offsetY<br>
+                    z(t,h) = r · sin(t)<br>
+                    <br>
+                    mit:<br>
+                    t ∈ [0, 2π] (Winkel um den Deckel)<br>
+                    h ∈ [-height/2, height/2] (kleine Höhe für Deckel-Dicke)
+                </div>
+
+                <h4>Parameter:</h4>
+                <ul class="parameter-list">
+                    <li><strong>radius = 0.5</strong> – Durchmesser der Deckel (breit, um die Sanduhr abzudecken)</li>
+                    <li><strong>height = 0.1</strong> – Dicke der Deckel (sehr flach)</li>
+                    <li><strong>bevelRatio = 0.95</strong> – Rand wird leicht abgerundet</li>
+                    <li><strong>offsetY oben = 0.75</strong> – Oberer Deckel sitzt oben</li>
+                    <li><strong>offsetY unten = -0.75</strong> – Unterer Deckel sitzt unten</li>
+                </ul>
+            </div>
+
+            <!-- BELEUCHTUNG -->
+            <div class="shape-section">
+                <h3>5. Beleuchtung & Schatten</h3>
+                <h4>Wie Licht funktioniert</h4>
+                <p>Die Beleuchtung wird mit zwei Komponenten berechnet:</p>
+                <ul>
+                    <li><strong>Normalen-Buffer:</strong> Für jeden Punkt auf der Oberfläche speichern wir eine Richtung
+                        (Normal), die senkrecht zur Oberfläche zeigt</li>
+                    <li><strong>Lichtrichtung:</strong> Das Licht kommt aus einer festen Richtung (wird jetzt animiert)
+                    </li>
+                    <li><strong>Helligkeit:</strong> Wie hell ein Punkt ist, hängt davon ab, wie sehr die
+                        Normal-Richtung zur Lichtrichtung zeigt</li>
+                </ul>
+
+                <h4>Mathematik der Beleuchtung</h4>
+                <div class="math-formula">
+                    lightDir = normalize(Lichtrichtung)<br>
+                    brightness = dot(Normal, lightDir)<br>
+                    <br>
+                    brightness = brightness · 0.5 + 0.5<br>
+                    <br>
+                    finalColor = vertexColor · brightness
+                </div>
+
+                <h4>Was passiert:</h4>
+                <ul>
+                    <li><strong>dot(Normal, lightDir)</strong> – Das Skalarprodukt zeigt wie sehr die Oberfläche zum
+                        Licht zeigt.
+                        <ul>
+                            <li>Wert = 1: Oberfläche zeigt direkt zum Licht → sehr hell</li>
+                            <li>Wert = 0: Oberfläche steht senkrecht zum Licht → dunkel</li>
+                            <li>Wert = -1: Oberfläche zeigt weg vom Licht → sehr dunkel</li>
+                        </ul>
+                    </li>
+                    <li><strong>× 0.5 + 0.5</strong> – Umrechnung von [-1, 1] auf [0, 1] Bereich für sanftere Schatten
+                    </li>
+                    <li><strong>Animation</strong> – Die Lichtrichtung dreht sich mit der Zeit, so dass die Schatten
+                        dynamisch wandern</li>
+                </ul>
+
+                <h4>Im Code:</h4>
+                <ul>
+                    <li>Jeder Vertex hat ein Normal-Attribut</li>
+                    <li>Im Vertex Shader werden diese Normalen zum Fragment Shader übertragen</li>
+                    <li>Im Fragment Shader wird für jeden Pixel die Helligkeit berechnet</li>
+                    <li>Die Lichtrichtung wird basierend auf der Zeit neu berechnet</li>
+                </ul>
+            </div>
+        </section>
+    </main>
+
     <script>
         const CONFIG = {
-            gl: { clearColor: [0.95, 0.95, 0.95, 1] },
+            gl: { clearColor: [0.90, 0.92, 0.95, 1] },
             light: { direction: [-2.0, 2.0, 0.8] },
             shapes: {
                 bell: {
@@ -16,13 +265,13 @@
                     heightMin: -0.7,
                     minRadius: 0.02,
                     hollowStart: 4,
-                    hollowMidRatio: 0.5,
+                    hollowMidRatio: 0.51,
                     hollowEndRatio: 1 / 8
                 },
                 cylinders: {
-                    side: { count: 2, radius: 0.04, height: 1.4, distance: 0.4 },
-                    top: { radius: 0.5, height: 0.1, offsetY: 0.75 },
-                    bottom: { radius: 0.5, height: 0.1, offsetY: -0.75 }
+                    side: { count: 4, radius: 0.04, height: 1.4, distance: 0.4, bendRotations: 0.32 },
+                    top: { radius: 0.5, height: 0.1, offsetY: 0.75, bevelRatio: 0.95 },
+                    bottom: { radius: 0.5, height: 0.1, offsetY: -0.75, bevelRatio: 0.95 }
                 },
             },
             colors: {
@@ -81,13 +330,13 @@
             '}';
 
         const fsSource = (() => {
-            const [x, y, z] = CONFIG.light.direction;
             return 'precision mediump float;' +
                 'varying vec4 color;' +
                 'varying vec3 vNormal;' +
+                'uniform vec3 lightDir;' +
                 'void main() {' +
-                `vec3 lightDir = normalize(vec3(${x}, ${y}, ${z}));` +
-                'float brightness = dot(vNormal, lightDir);' +
+                'vec3 normalizedLightDir = normalize(lightDir);' +
+                'float brightness = dot(vNormal, normalizedLightDir);' +
                 'brightness = brightness * 0.5 + 0.5;' +
                 'gl_FragColor = vec4(color.rgb * brightness, color.a);' +
                 '}';
@@ -185,42 +434,72 @@
             };
         }
 
-        function createVertexDataHelix() {
-            var loopCount = 3;
-            var n = 32;
-            var m = n * loopCount;
-            // Positions.
-            const vertices = new Float32Array(m * 3);
-            // Index data for Linestrip.
-            const indices = new Uint16Array(m);
-
-            const dt = 2 * Math.PI / n;
-
-            let iIndex = 0;
-
-            for (var i = 0; i < m; i++) {
-                var t = i * dt;
-                // Parametric equations.
-                var x = Math.cos(t) * 0.8;
-                var y = (t / (2 * Math.PI) - loopCount / 2) / 2;
-                var z = Math.sin(t) * 0.8;
-
-                indices[iIndex] = iIndex;
-
-                // Set vertex positions.
-                vertices[iIndex * 3] = x;
-                vertices[iIndex * 3 + 1] = y;
-                vertices[iIndex * 3 + 2] = z;
-
-                iIndex++;
-            }
-
-            return [vertices, indices];
-        }
-
-        function createVertexDataCylinder(offsetX, offsetY, offsetZ, radius = 0.04, height = 1.4, radialSegments = 12, heightSegments = 1) {
+        function createVertexDataCylinder(offsetX, offsetY, offsetZ, radius = 0.04, height = 1.4, radialSegments = 24, heightSegments = 1, bevelRatio = 0.6) {
             const n = radialSegments;
             const m = heightSegments;
+
+            // Add 2 extra segments for beveled edges (top and bottom)
+            const totalHeightSegments = m + 2;
+
+            const vertices = new Float32Array(3 * (n + 1) * (totalHeightSegments + 1));
+            const normals = new Float32Array(3 * (n + 1) * (totalHeightSegments + 1));
+            const indicesLines = new Uint16Array(2 * 2 * n * totalHeightSegments);
+            const indicesTris = new Uint16Array(3 * 2 * n * totalHeightSegments);
+
+            const dt = 2 * Math.PI / n;
+            const dh = height / totalHeightSegments;
+            const iIndex = { val: 0 };
+            const iTris = { val: 0 };
+
+            // Bevel radius (controlled by bevelRatio parameter)
+            const bevelRadius = radius * bevelRatio;
+
+            for (let i = 0, t = 0; i <= n; i++, t += dt) {
+                for (let j = 0, h = -height / 2; j <= totalHeightSegments; j++, h += dh) {
+                    const iVertex = i * (totalHeightSegments + 1) + j;
+
+                    // Determine radius: bevel segments (0, last) use smaller radius
+                    let r = radius;
+                    if (j === 0 || j === totalHeightSegments) {
+                        r = bevelRadius;
+                    }
+
+                    const x = r * Math.cos(t) + offsetX;
+                    const y = h + offsetY;
+                    const z = r * Math.sin(t) + offsetZ;
+
+                    setVertexPosition(vertices, iVertex, x, y, z);
+                    setVertexNormal(normals, iVertex, Math.cos(t), 0, Math.sin(t));
+
+                    // Line indices
+                    if (j > 0 && i > 0) {
+                        addLineIndex(indicesLines, iIndex, iVertex - 1, iVertex);
+                        addLineIndex(indicesLines, iIndex, iVertex - (totalHeightSegments + 1), iVertex);
+                    }
+                    if (j === 0 && i > 0) {
+                        addLineIndex(indicesLines, iIndex, iVertex - (totalHeightSegments + 1), iVertex);
+                    }
+
+                    // Triangle indices
+                    if (j > 0 && i > 0) {
+                        addTriangleIndices(indicesTris, iTris, iVertex, iVertex - 1, iVertex - (totalHeightSegments + 1));
+                        addTriangleIndices(indicesTris, iTris, iVertex - 1, iVertex - (totalHeightSegments + 1) - 1, iVertex - (totalHeightSegments + 1));
+                    }
+                }
+            }
+
+            return {
+                vertices,
+                normals,
+                indicesLines: indicesLines.subarray(0, iIndex.val),
+                indicesTris: indicesTris.subarray(0, iTris.val)
+            };
+        }
+
+        function createVertexDataDecorationCylinder(offsetX, offsetY, offsetZ, radius = 0.04, height = 1.4, radialSegments = 24, heightSegments = 24, bendRotations = 1) {
+            const n = radialSegments;
+            const m = heightSegments;
+
             const vertices = new Float32Array(3 * (n + 1) * (m + 1));
             const normals = new Float32Array(3 * (n + 1) * (m + 1));
             const indicesLines = new Uint16Array(2 * 2 * n * m);
@@ -231,26 +510,58 @@
             const iIndex = { val: 0 };
             const iTris = { val: 0 };
 
+            // Calculate initial angle of the cylinder around the hourglass
+            const initialAngle = Math.atan2(offsetZ, offsetX);
+
+            // First pass: create all vertices with bending around hourglass
             for (let i = 0, t = 0; i <= n; i++, t += dt) {
                 for (let j = 0, h = -height / 2; j <= m; j++, h += dh) {
                     const iVertex = i * (m + 1) + j;
-                    const x = radius * Math.cos(t) + offsetX;
+
+                    // Calculate progress along height (0 to 1)
+                    const heightProgress = (j - 0) / m;
+
+                    // Rotate this height segment around the circle (around the hourglass)
+                    // bendRotations controls how many full rotations occur over the height
+                    const rotationAngle = initialAngle + heightProgress * bendRotations * 2 * Math.PI;
+
+                    // Calculate distance from hourglass center based on initial position
+                    const distFromCenter = Math.sqrt(offsetX * offsetX + offsetZ * offsetZ);
+
+                    // New position on the circle at this height
+                    const circleX = Math.cos(rotationAngle) * distFromCenter;
+                    const circleZ = Math.sin(rotationAngle) * distFromCenter;
+
+                    // Position on the cylinder perimeter relative to the circle position
+                    const x = radius * Math.cos(t) + circleX;
                     const y = h + offsetY;
-                    const z = radius * Math.sin(t) + offsetZ;
+                    const z = radius * Math.sin(t) + circleZ;
 
                     setVertexPosition(vertices, iVertex, x, y, z);
-                    setVertexNormal(normals, iVertex, Math.cos(t), 0, Math.sin(t));
 
-                    // Line indices
-                    if (j > 0 && i > 0) {
+                    // Normal calculation: radial direction for sides
+                    const nx = Math.cos(t);
+                    const nz = Math.sin(t);
+                    setVertexNormal(normals, iVertex, nx, 0, nz);
+                }
+            }
+
+            // Second pass: create line grid (horizontal and vertical lines)
+            for (let i = 0; i <= n; i++) {
+                for (let j = 0; j <= m; j++) {
+                    const iVertex = i * (m + 1) + j;
+
+                    // Vertical lines (along height)
+                    if (j > 0) {
                         addLineIndex(indicesLines, iIndex, iVertex - 1, iVertex);
-                        addLineIndex(indicesLines, iIndex, iVertex - (m + 1), iVertex);
                     }
-                    if (j === 0 && i > 0) {
+
+                    // Horizontal lines (around circumference)
+                    if (i > 0) {
                         addLineIndex(indicesLines, iIndex, iVertex - (m + 1), iVertex);
                     }
 
-                    // Triangle indices
+                    // Add Triangle indices
                     if (j > 0 && i > 0) {
                         addTriangleIndices(indicesTris, iTris, iVertex, iVertex - 1, iVertex - (m + 1));
                         addTriangleIndices(indicesTris, iTris, iVertex - 1, iVertex - (m + 1) - 1, iVertex - (m + 1));
@@ -327,45 +638,170 @@
         // Start
         setup();
 
+        // Animate sand waves
+        let startTime = Date.now();
+
+        function createVertexDataSandWaves() {
+            const n = 24;  // segments around width
+            const m = 20;  // segments along height (shorter sand column)
+
+            const vertices = new Float32Array(3 * (n + 1) * (m + 1));
+            const normals = new Float32Array(3 * (n + 1) * (m + 1));
+            const indicesLines = new Uint16Array(2 * 2 * n * m);
+            const indicesTris = new Uint16Array(3 * 2 * n * m);
+
+            const dt = 2 * Math.PI / n;
+            const maxHeight = 0.525;  // Half the height: starts at y=0, flows to y=-0.525
+            const dh = maxHeight / m;
+            const iIndex = { val: 0 };
+            const iTris = { val: 0 };
+
+            // Get current time for animation
+            const elapsed = (Date.now() - startTime) / 1000;
+
+            for (let i = 0, t = 0; i <= n; i++, t += dt) {
+                for (let j = 0, h = 0; j <= m; j++, h += dh) {
+                    const iVertex = i * (m + 1) + j;
+
+                    // Height progress: 0 at top, 1 at bottom
+                    const heightProgress = j / m;
+
+                    // conical shape: narrow at top, wider at bottom
+                    const baseWidth = 0.005 + heightProgress * 0.03;
+
+                    // Subtle gentle ripples: single sine wave with low amplitude
+                    // Creates subtle width variation without extreme bending
+                    const phaseShift = (-elapsed * 3.5) + (heightProgress * Math.PI);
+                    const ripple = Math.sin(t + phaseShift) * 0.8;  // Low amplitude
+                    const currentWidth = baseWidth * (1.0 + ripple);
+
+                    // Simple circular cross-section, centered in hourglass
+                    const x = currentWidth * Math.cos(t) * Math.sin(t);
+                    const y = 0 - h;  // Flow from y=0 (null point) downwards
+                    const z = currentWidth * Math.sin(t) * Math.cos(-t);  // No flattening - full circle
+
+                    setVertexPosition(vertices, iVertex, x, y, z);
+
+                    // Normals: radial direction (outward from center)
+                    const nx = Math.cos(t) * Math.sin(t);
+                    const ny = 0;  // No vertical normal component
+                    const nz = Math.sin(t) * Math.cos(-t);
+                    setVertexNormal(normals, iVertex, nx, ny, nz);
+                }
+            }
+
+            // Create line grid (same vertices for lines and triangles)
+            for (let i = 0; i <= n; i++) {
+                for (let j = 0; j <= m; j++) {
+                    const iVertex = i * (m + 1) + j;
+
+                    // Vertical lines (along height)
+                    if (j > 0) {
+                        addLineIndex(indicesLines, iIndex, iVertex - 1, iVertex);
+                    }
+
+                    // Horizontal lines (around circumference)
+                    if (i > 0) {
+                        addLineIndex(indicesLines, iIndex, iVertex - (m + 1), iVertex);
+                    }
+
+                    // Triangles (same vertex indices as lines)
+                    if (j > 0 && i > 0) {
+                        addTriangleIndices(indicesTris, iTris, iVertex, iVertex - 1, iVertex - (m + 1));
+                        addTriangleIndices(indicesTris, iTris, iVertex - 1, iVertex - (m + 1) - 1, iVertex - (m + 1));
+                    }
+                }
+            }
+
+            return {
+                vertices,
+                normals,
+                indicesLines: indicesLines.subarray(0, iIndex.val),
+                indicesTris: indicesTris.subarray(0, iTris.val)
+            };
+        }
+
         // Create geometry
         const bellData = createVertexDataBell(...Object.values(CONFIG.shapes.bell));
         const bellRenderer = new MeshRenderer(bellData);
 
-        // Create cylinders
-        const cylinders = [];
+        // Sand waves
+        const sandData = createVertexDataSandWaves();
+        const sandRenderer = new MeshRenderer(sandData);
 
-        // Side cylinders in a circle
+        // Create cylinders
+        const sideCylinders = [];
+        const otherCylinders = [];
+
+        // Side cylinders in a circle - use decoration version
         const sideCyl = CONFIG.shapes.cylinders.side;
         for (let c = 0; c < sideCyl.count; c++) {
             const angle = (c / sideCyl.count) * 2 * Math.PI;
             const offsetX = Math.cos(angle) * sideCyl.distance;
             const offsetZ = Math.sin(angle) * sideCyl.distance;
-            const cylData = createVertexDataCylinder(offsetX, 0, offsetZ, sideCyl.radius, sideCyl.height);
-            cylinders.push(new MeshRenderer(cylData));
+            const cylData = createVertexDataDecorationCylinder(offsetX, 0, offsetZ, sideCyl.radius, sideCyl.height, 8, 24, sideCyl.bendRotations);
+            sideCylinders.push(new MeshRenderer(cylData));
         }
 
-        // Top and bottom cylinders
+        // Top and bottom cylinders - use simple version
         const topCyl = CONFIG.shapes.cylinders.top;
         const bottomCyl = CONFIG.shapes.cylinders.bottom;
 
-        const cylDataTop = createVertexDataCylinder(0, topCyl.offsetY, 0, topCyl.radius, topCyl.height);
-        cylinders.push(new MeshRenderer(cylDataTop));
+        const cylDataTop = createVertexDataCylinder(0, topCyl.offsetY, 0, topCyl.radius, topCyl.height, 24, 3, topCyl.bevelRatio);
+        otherCylinders.push(new MeshRenderer(cylDataTop));
 
-        const cylDataBottom = createVertexDataCylinder(0, bottomCyl.offsetY, 0, bottomCyl.radius, bottomCyl.height);
-        cylinders.push(new MeshRenderer(cylDataBottom));
+        const cylDataBottom = createVertexDataCylinder(0, bottomCyl.offsetY, 0, bottomCyl.radius, bottomCyl.height, 24, 3, bottomCyl.bevelRatio);
+        otherCylinders.push(new MeshRenderer(cylDataBottom));
 
-        // Render
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // Render loop for animation
+        function render() {
+            // Recreate sand waves for animation
+            const sandData = createVertexDataSandWaves();
+            const sandRenderer = new MeshRenderer(sandData);
 
-        // Bell triangles and lines
-        bellRenderer.renderTriangles(CONFIG.colors.sand);
-        bellRenderer.renderLines(CONFIG.colors.glass);
+            // Animate light direction - swings from left to right
+            const elapsed = (Date.now() - startTime) / 1000;
 
-        // Cylinder triangles and lines
-        cylinders.forEach(cyl => {
-            cyl.renderTriangles(CONFIG.colors.woodBrown);
-            cyl.renderLines(CONFIG.colors.woodLight);
-        });
+            // Easing function: oscillates smoothly between -1 and 1 with ease in/out
+            // Uses a sine wave with easing to spend more time on sides
+            const oscillation = Math.sin(elapsed * 0.5); // -1 to 1
+            const eased = oscillation * oscillation * oscillation; // Cubic ease - exaggerates extremes
+
+            const lightDir = [
+                eased * 2.5 + 0.5, // Swings from -2.5 to 2.5, offset by 0.5 to keep away from back
+                2.0,                // Fixed height - always from above
+                0.3                 // Slight forward bias to keep light from behind
+            ];
+
+            const lightDirUniform = gl.getUniformLocation(prog, 'lightDir');
+            gl.uniform3fv(lightDirUniform, lightDir);
+
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // Bell triangles and lines
+            bellRenderer.renderTriangles(CONFIG.colors.sand);
+            bellRenderer.renderLines(CONFIG.colors.glass);
+
+            // Sand waves
+            sandRenderer.renderTriangles([1, 0.85, 0.2, 0.5]);  // Golden sand color with slight transparency
+            sandRenderer.renderLines([0.8, 0.65, 0.1, 1]);
+
+            // Side cylinders with decoration
+            sideCylinders.forEach(cyl => {
+                cyl.renderTriangles(CONFIG.colors.woodBrown);
+                cyl.renderLines(CONFIG.colors.woodLight);
+            });
+
+            // Other cylinders
+            otherCylinders.forEach(cyl => {
+                cyl.renderTriangles(CONFIG.colors.woodBrown);
+                cyl.renderLines(CONFIG.colors.woodLight);
+            });
+
+            requestAnimationFrame(render);
+        }
+
+        render();
     </script>
 </body>
 
