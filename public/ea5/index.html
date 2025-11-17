@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>EA5 | Lighting & Shapes | Pascal Hürten</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../ea2/style.css">
+    <style>
+        .math-formula {
+            background: #f5f5f5;
+            padding: 12px;
+            margin: 10px 0;
+            border-left: 4px solid #0066cc;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .shape-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .shape-section h4 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+    </style>
+
+    <!-- libraries & geometry generators -->
+    <script src="ext/gl-matrix.js"></script>
+    <script src="GVT_Src_vertexData_torus.js"></script>
+    <script src="GVT_Src_vertexData_sphere.js"></script>
+    <script src="GVT_Src_vertexData_cube.js"></script>
+    <script src="GVT_Src_vertexData_cone.js"></script>
+    <!-- main app -->
+    <script src="KAP_Src_tpl.js"></script>
+
+    <!-- Shaders (app reads these by id at init) -->
+    <script type="x-shader/x-vertex" id="vertexshader">
+			attribute vec3 aPosition;
+			attribute vec3 aNormal;
+
+			uniform mat4 uPMatrix;
+			uniform mat4 uMVMatrix;
+			uniform mat3 uNormalMatrix;
+			uniform vec3 uModelColor;
+			uniform vec3 uLightDirection;
+			uniform float uAmbientStrength;
+
+			varying vec3 vNormal;
+			varying vec3 vPosition;
+
+			void main(){
+				// compute position in view (model-view) space
+				vec4 mvPos = uMVMatrix * vec4(aPosition, 1.0);
+				gl_Position = uPMatrix * mvPos;
+				// pass normal and position to fragment shader
+				vNormal = normalize(uNormalMatrix * aNormal);
+				vPosition = mvPos.xyz;
+			}
+	</script>
+    <script type="x-shader/x-fragment" id="fragmentshader">
+			precision mediump float;
+			varying vec3 vNormal;
+			varying vec3 vPosition;
+
+			uniform vec3 uModelColor;
+			uniform vec3 uLightDirection;
+			uniform float uAmbientStrength;
+			uniform float uShadowStrength; // 0..1 how strong shadows get
+			uniform float uShadowExponent; // controls falloff of shadow
+
+			void main() {
+				vec3 N = normalize(vNormal);
+				vec3 L = normalize(uLightDirection);
+				float diffuse = max(dot(N, -L), 0.0);
+
+				// basic lighting (ambient + diffuse)
+				float lighting = uAmbientStrength + diffuse * (1.0 - uAmbientStrength);
+
+				// shadow factor: stronger when diffuse is small
+				float shadowFactor = pow(1.0 - diffuse, uShadowExponent);
+				float shadow = clamp(uShadowStrength * shadowFactor, 0.0, 1.0);
+
+				// lit color
+				vec3 litColor = uModelColor * lighting;
+
+				// dark base for shadows (very low ambient in deep shadow)
+				vec3 shadowColor = uModelColor * (uAmbientStrength * 0.25);
+
+				// blend between shadowColor and litColor depending on shadow
+				vec3 color = mix(litColor, shadowColor, shadow);
+
+				gl_FragColor = vec4(color, 1.0);
+			}
+	</script>
+
+</head>
+
+<body onload="app.start()">
+    <main>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="../index.html">← Zurück zur Übersicht</a>
+        </nav>
+
+        <h1>EA5 - Kamerabewegung - Pascal Hürten</h1>
+
+        <section id="viewer" aria-labelledby="viewer-heading">
+            <h2 id="viewer-heading">Stillleben</h2>
+
+            <div id="canvas-wrap" style="text-align: center; margin: 20px 0;">
+                <canvas id="canvas" width="700" height="700"
+                    style="border: 1px solid #ccc; border-radius: 4px; max-width:100%; height:auto;"></canvas>
+            </div>
+            <div id="key-help"
+                style="max-width:700px;margin:0 auto 20px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <strong>Tastatur-Steuerung</strong>
+                </div>
+                <ul style="margin:8px 0 0 16px;padding:0;color:#333;line-height:1.4;">
+                    <li><strong>← / a , → / d</strong>: Kamera um Szene drehen</li>
+                    <li><strong>w / s</strong>: Kameraneigung (Pitch) ändern</li>
+                    <li><strong>+ / -</strong>: Rekursion der Kugel erhöhen / verringern (0..6)</li>
+                    <li><strong>o</strong>: Orthografische Projektion</li>
+                    <li><strong>p</strong>: Perspektivische Projektion</li>
+                    <li><strong>f</strong>: Frustum-Projektion</li>
+                    <li><strong>n / N</strong>: Kamera weiter / näher</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="doc">
+            <h2>Dokumentation</h2>
+
+            <div class="shape-section">
+                <h3>Geometrie</h3>
+                <p>Die Szene enthält Generatoren für Torus, Kugel, Würfel und Kegel. Der Würfel-Generator unterstützt
+                    den Parameter <code>inward</code>, sodass er als Innenraum (Wände nach innen) verwendet werden kann.
+                </p>
+                <p>Die rekursive Kugel wird durch sukzessive Unterteilung eines Oktaeders erzeugt. Bei jeder Stufe wird
+                    jede Dreiecksfläche in vier Dreiecke geteilt; die Mittelpunkte werden auf die Kugeloberfläche
+                    projiziert und als gemeinsame Scheitelpunkte wiederverwendet. Ein Mittelkanten-Cache verhindert
+                    doppelte Scheitelpunkte und reduziert Rechenaufwand.</p>
+                <p><strong>Quellen / Attribution:</strong> Algorithmus und Implementierung orientieren sich an der
+                    C-Referenzimplementierung von Paul Bourke: <a
+                        href="https://paulbourke.net/geometry/circlesphere/csource3.c" target="_blank"
+                        rel="noopener">paulbourke.net — csource3.c</a>.</p>
+            </div>
+
+            <div class="shape-section">
+                <h3>Beleuchtung</h3>
+                <p>Die Beleuchtung wird pro Fragment im Fragment-Shader berechnet. Es gibt einen Ambient- und einen
+                    Diffuse-Anteil sowie einen Schattenfaktor, der Flächen dunkler macht, die von der Lichtquelle weg
+                    zeigen. Die Lichtrichtung wird in Weltkoordinaten definiert und pro Frame in View-Space
+                    transformiert,
+                    damit Schatten relativ zur Szene stabil bleiben.</p>
+            </div>
+        </section>
+    </main>
+</body>
+
+</html>
