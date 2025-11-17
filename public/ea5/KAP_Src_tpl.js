@@ -43,9 +43,48 @@ var app = (function () {
 		distance: 2.5,
 	};
 
+	// Animation controls
+	var isPlaying = true; // whether auto-rotation is active (start playing by default)
+	var playSpeed = 0.3; // radians per second (rotation speed)
+	var _lastAnimTime = null;
+
 	function start() {
 		init();
+		// start the continuous animation loop (rendering occurs each frame)
+		_lastAnimTime = null;
+		requestAnimationFrame(animate);
+	}
+
+	/**
+	 * Animation loop. Uses requestAnimationFrame and advances camera.zAngle
+	 * when `isPlaying` is true. Always renders the scene each frame.
+	 */
+	function animate(timestamp) {
+		if (!_lastAnimTime) _lastAnimTime = timestamp;
+		var dt = (timestamp - _lastAnimTime) / 1000.0;
+		_lastAnimTime = timestamp;
+		if (isPlaying) {
+			// rotate clockwise by increasing zAngle
+			camera.zAngle += playSpeed * dt;
+		}
 		render();
+		requestAnimationFrame(animate);
+	}
+
+	function togglePlayPause() {
+		isPlaying = !isPlaying;
+		if (typeof document !== 'undefined') {
+			var btn = document.getElementById('play-pause');
+			if (btn) btn.textContent = isPlaying ? 'Pause ❚❚' : 'Play ▶';
+		}
+	}
+
+	function pauseAnimation() {
+		isPlaying = false;
+		if (typeof document !== 'undefined') {
+			var btn = document.getElementById('play-pause');
+			if (btn) btn.textContent = 'Play ▶';
+		}
 	}
 
 	function init() {
@@ -176,6 +215,10 @@ var app = (function () {
 			var dec = document.getElementById('recursion-decrease');
 			if (inc) inc.addEventListener('click', function () { changeSphereRecursion(1); });
 			if (dec) dec.addEventListener('click', function () { changeSphereRecursion(-1); });
+			var play = document.getElementById('play-pause');
+			if (play) play.addEventListener('click', function () { togglePlayPause(); });
+			// Set initial label according to play state
+			if (play) play.textContent = isPlaying ? 'Pause ❚❚' : 'Play ▶';
 		}
 	}
 
@@ -325,13 +368,17 @@ var app = (function () {
 				case ('ArrowRight'):
 				case ('d'):
 					console.log("right");
-					camera.zAngle += 0.1;
+					// user manually rotated -> pause automatic animation
+					pauseAnimation();
+					camera.zAngle += 0.03;
 					break;
 				case ('C'):
 				case ('ArrowLeft'):
 				case ('a'):
 					console.log("left");
-					camera.zAngle -= 0.1;
+					// user manually rotated -> pause automatic animation
+					pauseAnimation();
+					camera.zAngle -= 0.03;
 					break;
 				case ('w'):
 					// look more from above (increase pitch)
@@ -343,7 +390,7 @@ var app = (function () {
 					// look more from below (decrease pitch)
 					camera.xAngle -= 0.08;
 					console.log("xAngle:", camera.xAngle);
-					if (camera.xAngle <= 0) camera.xAngle = 0;
+					if (camera.xAngle <= 0.05) camera.xAngle = 0.05;
 					break;
 				case ('n'):
 					console.log("away");
