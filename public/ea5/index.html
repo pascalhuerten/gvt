@@ -132,6 +132,17 @@
                     <li><strong>n / N</strong>: Kamera weiter / näher</li>
                 </ul>
             </div>
+            <!-- Sphere recursion widget -->
+            <div id="recursion-widget"
+                style="max-width:700px;margin:12px auto 30px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:10px; border-radius:6px; display:flex;align-items:center;gap:12px;">
+                <strong style="margin-right:8px;">Kugel-Rekursion:</strong>
+                <button id="recursion-decrease" aria-label="Rekursion verringern"
+                    style="font-size:18px;padding:6px 10px;">−</button>
+                <span id="recursion-value" style="min-width:28px;text-align:center;font-weight:600;">-</span>
+                <button id="recursion-increase" aria-label="Rekursion erhöhen"
+                    style="font-size:18px;padding:6px 10px;">+</button>
+                <div style="margin-left:12px;color:#666;font-size:13px;">(0..6)</div>
+            </div>
         </section>
 
         <section id="doc">
@@ -144,8 +155,7 @@
                 </p>
                 <p>Die rekursive Kugel wird durch sukzessive Unterteilung eines Oktaeders erzeugt. Bei jeder Stufe wird
                     jede Dreiecksfläche in vier Dreiecke geteilt; die Mittelpunkte werden auf die Kugeloberfläche
-                    projiziert und als gemeinsame Scheitelpunkte wiederverwendet. Ein Mittelkanten-Cache verhindert
-                    doppelte Scheitelpunkte und reduziert Rechenaufwand.</p>
+                    projiziert und als gemeinsame Scheitelpunkte wiederverwendet.</p>
                 <p><strong>Quellen / Attribution:</strong> Algorithmus und Implementierung orientieren sich an der
                     C-Referenzimplementierung von Paul Bourke: <a
                         href="https://paulbourke.net/geometry/circlesphere/csource3.c" target="_blank"

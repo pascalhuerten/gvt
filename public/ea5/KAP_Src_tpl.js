@@ -56,6 +56,8 @@ var app = (function () {
 		initModels();
 		initEventHandler();
 		initPipline();
+		// after pipeline & models are ready, wire up UI
+		_postInitUI();
 	}
 
 	function initWebGL() {
@@ -162,6 +164,19 @@ var app = (function () {
 		createModel("torus", fs, { position: [-0.55, 0, 0.58], rotation: [-0.6, -Math.PI / 6, 0], color: [0.6, 1.0, 0.7] });
 		createModel("sphere", fs, { radius: 1.0, depth: 3, position: [0.5, 0.25, -0.6], color: [0.3, 0.8, 1.0] });
 		createModel("cone", fs, { radius: 0.47, height: 1.1, radialSegments: 32, position: [0.5, -0.17, 0.7], color: [0.9, 0.5, 0.7] });
+	}
+
+	// Update UI after models are initialized
+	function _postInitUI() {
+		// Ensure recursion display reflects initial model state
+		updateRecursionDisplay();
+		// Wire up buttons if present
+		if (typeof document !== 'undefined') {
+			var inc = document.getElementById('recursion-increase');
+			var dec = document.getElementById('recursion-decrease');
+			if (inc) inc.addEventListener('click', function () { changeSphereRecursion(1); });
+			if (dec) dec.addEventListener('click', function () { changeSphereRecursion(-1); });
+		}
 	}
 
 	/**
@@ -388,10 +403,32 @@ var app = (function () {
 		}
 		if (changed > 0) {
 			render();
+			updateRecursionDisplay();
 			console.log('Adjusted recursion by', delta, 'for', changed, 'sphere(s)');
 		} else {
 			console.log('Sphere recursion already at limit for all spheres');
 		}
+	}
+
+	/**
+	 * Return recursion depth for the first sphere model found or null if none.
+	 */
+	function getSphereRecursion() {
+		var list = findModelsByGeometry('sphere');
+		if (!list || list.length === 0) return null;
+		var m = list[0];
+		return (m.depth !== undefined) ? m.depth : (m.params && m.params.depth !== undefined) ? m.params.depth : 4;
+	}
+
+	/**
+	 * Update DOM element with id 'recursion-value' if present.
+	 */
+	function updateRecursionDisplay() {
+		if (typeof document === 'undefined') return;
+		var el = document.getElementById('recursion-value');
+		if (!el) return;
+		var v = getSphereRecursion();
+		el.textContent = (v === null) ? '-' : String(v);
 	}
 
 	/**
@@ -504,7 +541,9 @@ var app = (function () {
 
 	// App interface.
 	return {
-		start: start
+		start: start,
+		changeSphereRecursion: changeSphereRecursion,
+		getSphereRecursion: getSphereRecursion
 	}
 
 }());
