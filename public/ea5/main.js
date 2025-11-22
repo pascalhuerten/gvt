@@ -1,21 +1,21 @@
-var app = (function () {
+var app = (() => {
 
-	var gl;
+	let gl;
 
 	// The shader program object is also used to
 	// store attribute and uniform locations.
-	var prog;
+	let prog;
 
 	// Array of model objects.
-	var models = [];
+	const models = [];
 
 	// Global light defined in world space. We'll transform it into view space
 	// every frame so lighting stays fixed relative to the scene (not the camera).
-	var light = {
+	const light = {
 		direction: [0.2, -0.5, -0.1]
 	};
 
-	var camera = {
+	let camera = {
 		// Initial position of the camera.
 		eye: [0, 0, 0],
 		// Point to look at.
@@ -44,9 +44,9 @@ var app = (function () {
 	};
 
 	// Animation controls
-	var isPlaying = true; // whether auto-rotation is active (start playing by default)
-	var playSpeed = 0.3; // radians per second (rotation speed)
-	var _lastAnimTime = null;
+	let isPlaying = true; // whether auto-rotation is active (start playing by default)
+	const playSpeed = 0.3; // radians per second (rotation speed)
+	let _lastAnimTime = null;
 
 	function start() {
 		init();
@@ -61,7 +61,7 @@ var app = (function () {
 	 */
 	function animate(timestamp) {
 		if (!_lastAnimTime) _lastAnimTime = timestamp;
-		var dt = (timestamp - _lastAnimTime) / 1000.0;
+		const dt = (timestamp - _lastAnimTime) / 1000.0;
 		_lastAnimTime = timestamp;
 		if (isPlaying) {
 			// rotate clockwise by increasing zAngle
@@ -74,7 +74,7 @@ var app = (function () {
 	function togglePlayPause() {
 		isPlaying = !isPlaying;
 		if (typeof document !== 'undefined') {
-			var btn = document.getElementById('play-pause');
+			const btn = document.getElementById('play-pause');
 			if (btn) btn.textContent = isPlaying ? 'Pause ❚❚' : 'Play ▶';
 		}
 	}
@@ -82,7 +82,7 @@ var app = (function () {
 	function pauseAnimation() {
 		isPlaying = false;
 		if (typeof document !== 'undefined') {
-			var btn = document.getElementById('play-pause');
+			const btn = document.getElementById('play-pause');
 			if (btn) btn.textContent = 'Play ▶';
 		}
 	}
@@ -102,7 +102,7 @@ var app = (function () {
 	function initWebGL() {
 		// Get canvas and WebGL context.
 		canvas = document.getElementById('canvas');
-		gl = canvas.getContext('experimental-webgl');
+		gl = canvas.getContext('webgl2');
 		gl.viewportWidth = canvas.width;
 		gl.viewportHeight = canvas.height;
 	}
@@ -137,9 +137,9 @@ var app = (function () {
 
 	function initShaderProgram() {
 		// Init vertex shader.
-		var vs = initShader(gl.VERTEX_SHADER, "vertexshader");
+		const vs = initShader(gl.VERTEX_SHADER, "vertexshader");
 		// Init fragment shader.
-		var fs = initShader(gl.FRAGMENT_SHADER, "fragmentshader");
+		const fs = initShader(gl.FRAGMENT_SHADER, "fragmentshader");
 		// Link shader into a shader program.
 		prog = gl.createProgram();
 		gl.attachShader(prog, vs);
@@ -157,8 +157,8 @@ var app = (function () {
 	 * @returns shader object.
 	 */
 	function initShader(shaderType, SourceTagId) {
-		var shader = gl.createShader(shaderType);
-		var shaderSource = document.getElementById(SourceTagId).text;
+		const shader = gl.createShader(shaderType);
+		const shaderSource = document.getElementById(SourceTagId).text;
 		gl.shaderSource(shader, shaderSource);
 		gl.compileShader(shader);
 		if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -198,11 +198,50 @@ var app = (function () {
 
 	function initModels() {
 		// fill-style
-		var fs = "fillwireframe";
-		createModel("cube", 'fill', { size: 8, depth: 4, position: [0, 3.28, 0], rotation: [0, Math.PI / 4, 0], color: [1.0, 0.8, 0.5], inward: true });
-		createModel("torus", fs, { position: [-0.55, 0, 0.58], rotation: [-0.6, -Math.PI / 6, 0], color: [0.6, 1.0, 0.7] });
-		createModel("sphere", fs, { radius: 1.0, depth: 3, position: [0.5, 0.25, -0.6], color: [0.3, 0.8, 1.0] });
-		createModel("cone", fs, { radius: 0.47, height: 1.1, radialSegments: 32, position: [0.5, -0.17, 0.7], color: [0.9, 0.5, 0.7] });
+		const fs = "fillwireframe";
+		const cubeModel = new Model(
+			new Cube({ size: 8, depth: 4, inward: true }),
+			gl, prog,
+			{
+				fillstyle: 'fill',
+				color: [1.0, 0.8, 0.5],
+				transform: { translation: [0, 3.28, 0], rotation: [0, Math.PI / 4, 0] }
+			}
+		);
+		models.push(cubeModel);
+		const torusModel = new Model(
+			new Torus(),
+			gl, prog,
+			{
+				fillstyle: fs,
+				color: [0.6, 1.0, 0.7],
+				transform: { translation: [-0.55, 0, 0.58], rotation: [-0.6, -Math.PI / 6, 0] }
+			}
+		);
+		models.push(torusModel);
+		// createModel("torus", fs, { position: , color:  });
+		const sphereModel = new Model(
+			new Sphere({ radius: 1.0, depth: 3 }),
+			gl, prog,
+			{
+				fillstyle: fs,
+				color: [0.3, 0.8, 1.0],
+				transform: { translation: [0.5, 0.25, -0.6] }
+			}
+		);
+		models.push(sphereModel);
+		// createModel("sphere", fs, { , position: , color:  });
+		const coneModel = new Model(
+			new Cone({ radius: 0.47, height: 1.1, radialSegments: 32 }),
+			gl, prog,
+			{
+				fillstyle: fs,
+				color: [0.9, 0.5, 0.7],
+				transform: { translation: [0.5, -0.17, 0.7] }
+			}
+		);
+		models.push(coneModel);
+
 	}
 
 	// Update UI after models are initialized
@@ -211,143 +250,30 @@ var app = (function () {
 		updateRecursionDisplay();
 		// Wire up buttons if present
 		if (typeof document !== 'undefined') {
-			var inc = document.getElementById('recursion-increase');
-			var dec = document.getElementById('recursion-decrease');
-			if (inc) inc.addEventListener('click', function () { changeSphereRecursion(1); });
-			if (dec) dec.addEventListener('click', function () { changeSphereRecursion(-1); });
-			var play = document.getElementById('play-pause');
-			if (play) play.addEventListener('click', function () { togglePlayPause(); });
+			const inc = document.getElementById('recursion-increase');
+			const dec = document.getElementById('recursion-decrease');
+			if (inc) inc.addEventListener('click', () => changeSphereRecursion(1));
+			if (dec) dec.addEventListener('click', () => changeSphereRecursion(-1));
+			const play = document.getElementById('play-pause');
+			if (play) play.addEventListener('click', () => togglePlayPause());
 			// Set initial label according to play state
 			if (play) play.textContent = isPlaying ? 'Pause ❚❚' : 'Play ▶';
 		}
 	}
 
 	/**
-	 * Create model object, fill it and push it in models array.
-	 * 
-	 * @parameter geometryname: string with name of geometry.
-	 * @parameter fillstyle: wireframe, fill, fillwireframe.
-	 */
-	function createModel(geometryname, fillstyle, params) {
-		var model = {};
-		// remember geometry name for dynamic updates
-		model.geometry = geometryname;
-		model.fillstyle = fillstyle;
-		// copy any provided params onto model for the createVertexData to use
-		if (params) {
-			for (var k in params) {
-				if (Object.prototype.hasOwnProperty.call(params, k)) model[k] = params[k];
-			}
-			// also provide a params object for backward compatibility
-			model.params = params;
-		}
-		initDataAndBuffers(model, geometryname);
-		// Create and initialize Model-View-Matrix.
-		model.mvMatrix = mat4.create();
-		// Apply optional placement transform (position/translate, rotation, scale)
-		setModelTransform(model, params || model.params || {});
-
-		models.push(model);
-	}
-
-	/**
-	 * Update the recursion level of the sphere model.
-	 * level: integer 0..6
+	 * Find all models of a given geometry type.
+	 * Checks the generator class name (e.g., 'Sphere', 'Cube', etc..)
 	 */
 	function findModelsByGeometry(geometry) {
-		var found = [];
-		for (var i = 0; i < models.length; i++) {
-			if (models[i].geometry === geometry) found.push(models[i]);
-		}
-		return found;
-	}
-
-	/**
-	 * Apply a model transform (translation, rotation, scale) to model.mvMatrix.
-	 * params may contain `position` or `translate` = [x,y,z],
-	 * `rotation` = [rx,ry,rz] in radians (applied Z then Y then X),
-	 * and `scale` = scalar or [sx,sy,sz].
-	 */
-	function setModelTransform(model, params) {
-		if (!model || !model.mvMatrix) return;
-		params = params || {};
-		// start with identity
-		mat4.identity(model.mvMatrix);
-		// translation
-		var t = params.position || params.translate;
-		if (Array.isArray(t) && t.length >= 3) {
-			mat4.translate(model.mvMatrix, model.mvMatrix, [t[0], t[1], t[2]]);
-		}
-		// rotation: apply Z, then Y, then X (if provided)
-		var r = params.rotation;
-		if (Array.isArray(r) && r.length >= 3) {
-			if (r[2]) mat4.rotateZ(model.mvMatrix, model.mvMatrix, r[2]);
-			if (r[1]) mat4.rotateY(model.mvMatrix, model.mvMatrix, r[1]);
-			if (r[0]) mat4.rotateX(model.mvMatrix, model.mvMatrix, r[0]);
-		}
-		// scaling
-		if (params.scale !== undefined) {
-			if (Array.isArray(params.scale)) {
-				mat4.scale(model.mvMatrix, model.mvMatrix, [params.scale[0], params.scale[1], params.scale[2]]);
-			} else {
-				mat4.scale(model.mvMatrix, model.mvMatrix, [params.scale, params.scale, params.scale]);
-			}
-		}
-		// Store model color (default to white if not specified)
-		model.color = params.color || [1.0, 1.0, 1.0];
-	}
-
-	/**
-	 * Init data and buffers for model object.
-	 * 
-	 * @parameter model: a model object to augment with data.
-	 * @parameter geometryname: string with name of geometry.
-	 */
-	function initDataAndBuffers(model, geometryname) {
-		// Provide model object with vertex data arrays.
-		// Fill data arrays for Vertex-Positions, Normals, Index data:
-		// vertices, normals, indicesLines, indicesTris;
-		// Pointer this refers to the window.
-		this[geometryname]['createVertexData'].apply(model);
-
-		// Setup position vertex buffer object.
-		model.vboPos = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboPos);
-		gl.bufferData(gl.ARRAY_BUFFER, model.vertices, gl.STATIC_DRAW);
-		// Bind vertex buffer to attribute variable.
-		prog.positionAttrib = gl.getAttribLocation(prog, 'aPosition');
-		gl.enableVertexAttribArray(prog.positionAttrib);
-
-		// Setup normal vertex buffer object.
-		model.vboNormal = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
-		gl.bufferData(gl.ARRAY_BUFFER, model.normals, gl.STATIC_DRAW);
-		// Bind buffer to attribute variable.
-		prog.normalAttrib = gl.getAttribLocation(prog, 'aNormal');
-		gl.enableVertexAttribArray(prog.normalAttrib);
-
-		// Setup lines index buffer object.
-		model.iboLines = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesLines,
-			gl.STATIC_DRAW);
-		model.iboLines.numberOfElements = model.indicesLines.length;
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
-		// Setup triangle index buffer object.
-		model.iboTris = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, model.indicesTris,
-			gl.STATIC_DRAW);
-		model.iboTris.numberOfElements = model.indicesTris.length;
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+		return models.filter(m => m.generator && m.generator.constructor.name.toLowerCase() === geometry.toLowerCase());
 	}
 
 	function initEventHandler() {
 
 		window.onkeydown = function (evt) {
-			var c = evt.key;
-			var shift = evt.shiftKey;
+			const c = evt.key;
+			const shift = evt.shiftKey;
 			// console.log("key: " + c + " shift: " + shift);
 			// Change projection of scene.
 			switch (c) {
@@ -430,24 +356,26 @@ var app = (function () {
 	 */
 	function changeSphereRecursion(delta) {
 		// find all sphere models and adjust each by delta
-		var list = findModelsByGeometry('sphere');
-		if (!list || list.length === 0) {
+		const sphereModels = findModelsByGeometry('sphere');
+		if (!sphereModels || sphereModels.length === 0) {
 			console.log('No sphere model to change recursion.');
 			return;
 		}
-		var changed = 0;
-		for (var i = 0; i < list.length; i++) {
-			var m = list[i];
-			var cur = (m.depth !== undefined) ? m.depth : (m.params && m.params.depth !== undefined) ? m.params.depth : 4;
-			var next = Math.max(0, Math.min(6, cur + delta));
-			if (next !== cur) {
-				m.depth = next;
-				if (!m.params) m.params = {};
-				m.params.depth = next;
-				initDataAndBuffers(m, 'sphere');
+
+		let changed = 0;
+		for (const model of sphereModels) {
+			const currentDepth = model.generator.getParam('depth', 3);
+			const newDepth = Math.max(0, Math.min(6, currentDepth + delta));
+
+			if (newDepth !== currentDepth) {
+				// Update geometry with new depth parameter and reinitialize buffers
+				model.updateGeometry({ depth: newDepth });
+				// Reinitialize WebGL buffers with new geometry data
+				model._reinitializeWebGLBuffers(gl, prog);
 				changed++;
 			}
 		}
+
 		if (changed > 0) {
 			render();
 			updateRecursionDisplay();
@@ -461,10 +389,9 @@ var app = (function () {
 	 * Return recursion depth for the first sphere model found or null if none.
 	 */
 	function getSphereRecursion() {
-		var list = findModelsByGeometry('sphere');
-		if (!list || list.length === 0) return null;
-		var m = list[0];
-		return (m.depth !== undefined) ? m.depth : (m.params && m.params.depth !== undefined) ? m.params.depth : 4;
+		const sphereModels = findModelsByGeometry('sphere');
+		if (!sphereModels || sphereModels.length === 0) return null;
+		return sphereModels[0].generator.getParam('depth', 3);
 	}
 
 	/**
@@ -472,9 +399,9 @@ var app = (function () {
 	 */
 	function updateRecursionDisplay() {
 		if (typeof document === 'undefined') return;
-		var el = document.getElementById('recursion-value');
+		const el = document.getElementById('recursion-value');
 		if (!el) return;
-		var v = getSphereRecursion();
+		const v = getSphereRecursion();
 		el.textContent = (v === null) ? '-' : String(v);
 	}
 
@@ -508,8 +435,8 @@ var app = (function () {
 		// Transform world-space light direction into view space so lighting
 		// remains fixed relative to the scene (not the camera).
 		if (prog.lightDirectionUniform) {
-			var lightDirView = vec3.create();
-			var _tmpMat3 = mat3.create();
+			const lightDirView = vec3.create();
+			const _tmpMat3 = mat3.create();
 			mat3.fromMat4(_tmpMat3, camera.vMatrix);
 			vec3.transformMat3(lightDirView, light.direction, _tmpMat3);
 			vec3.normalize(lightDirView, lightDirView);
@@ -517,14 +444,14 @@ var app = (function () {
 		}
 
 		// Loop over models.
-		for (var i = 0; i < models.length; i++) {
+		for (let i = 0; i < models.length; i++) {
 			// models[i].mvMatrix holds the model (local) transform.
 			// Compute ModelView = View * Model
-			var mv = mat4.create();
+			const mv = mat4.create();
 			mat4.multiply(mv, camera.vMatrix, models[i].mvMatrix);
 
 			// Calculate normal matrix (inverse transpose of model-view)
-			var normalMatrix = mat3.create();
+			const normalMatrix = mat3.create();
 			mat3.normalFromMat4(normalMatrix, mv);
 
 			// Set uniforms for model.
@@ -540,7 +467,7 @@ var app = (function () {
 		// Set projection Matrix.
 		switch (camera.projectionType) {
 			case ("ortho"):
-				var v = camera.lrtb;
+				const v = camera.lrtb;
 				mat4.ortho(camera.pMatrix, -v, v, -v, v, -10, 10);
 				break;
 			case ("perspective"):
@@ -548,9 +475,9 @@ var app = (function () {
 					camera.aspect, 0.1, 100);
 				break;
 			case ("frustum"):
-				var v = camera.lrtb;
-				mat4.frustum(camera.pMatrix, -v / 2 * camera.aspect, v / 2 * camera.aspect,
-					-v / 2, v / 2, 1, 100);
+				const fv = camera.lrtb;
+				mat4.frustum(camera.pMatrix, -fv / 2 * camera.aspect, fv / 2 * camera.aspect,
+					-fv / 2, fv / 2, 1, 100);
 				break;
 		}
 		// Set projection uniform.
@@ -567,7 +494,7 @@ var app = (function () {
 		gl.vertexAttribPointer(prog.normalAttrib, 3, gl.FLOAT, false, 0, 0);
 
 		// Setup rendering tris.
-		var fill = (model.fillstyle.search(/fill/) != -1);
+		const fill = (model.fillstyle.search(/fill/) != -1);
 		if (fill) {
 			gl.enableVertexAttribArray(prog.normalAttrib);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
@@ -576,7 +503,7 @@ var app = (function () {
 		}
 
 		// Setup rendering lines.
-		var wireframe = (model.fillstyle.search(/wireframe/) != -1);
+		const wireframe = (model.fillstyle.search(/wireframe/) != -1);
 		if (wireframe) {
 			gl.disableVertexAttribArray(prog.normalAttrib);
 			gl.vertexAttrib3f(prog.normalAttrib, 0, 0, 0);
@@ -593,4 +520,4 @@ var app = (function () {
 		getSphereRecursion: getSphereRecursion
 	}
 
-}());
+})();

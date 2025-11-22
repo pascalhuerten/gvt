@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>EA5 | Lighting & Shapes | Pascal Hürten</title>
+    <title>EA6 | Objekte bewegen | Pascal Hürten</title>
     <link rel="stylesheet" href="../style.css">
     <link rel="stylesheet" href="../ea2/style.css">
     <style>
@@ -114,39 +114,32 @@ void main() {
             <a href="../index.html">← Zurück zur Übersicht</a>
         </nav>
 
-        <h1>EA5 - Kamerabewegung - Pascal Hürten</h1>
+        <h1>EA6 - Objekte bewegen - Pascal Hürten</h1>
 
         <section id="viewer" aria-labelledby="viewer-heading">
-            <h2 id="viewer-heading">Stillleben</h2>
+            <h2 id="viewer-heading">Fliegende Kugeln</h2>
 
-            <div id="canvas-wrap" style="text-align: center; margin: 20px 0;">
+            <div id="canvas-wrap" style="text-align: center; margin: 20px auto;">
                 <canvas id="canvas" width="700" height="700"
                     style="border: 1px solid #ccc; border-radius: 4px; max-width:100%; height:auto;"></canvas>
             </div>
-            <!-- Sphere recursion widget -->
-            <div id="recursion-widget"
-                style="max-width:700px;margin:12px auto 30px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:10px; border-radius:6px; display:flex;align-items:center;gap:12px;">
-                <strong style="margin-right:8px;">Kugel-Rekursion:</strong>
-                <button id="recursion-decrease" aria-label="Rekursion verringern"
-                    style="font-size:18px;padding:6px 10px;">−</button>
-                <span id="recursion-value" style="min-width:28px;text-align:center;font-weight:600;">-</span>
-                <button id="recursion-increase" aria-label="Rekursion erhöhen"
-                    style="font-size:18px;padding:6px 10px;">+</button>
-                <div style="margin-left:12px;color:#666;font-size:13px;">(0..6)</div>
-                <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+            <div id="control-widget"
+                style="text-align:left; margin-bottom: 10px; background:#fff; border:1px solid #e6e6e6; padding:10px; border-radius:6px; display:flex;align-items:center;gap:12px;">
+                <div style="display:flex; gap:8px; align-items:center;">
                     <button id="play-pause" aria-label="Play Pause Rotation"
                         style="font-size:14px;padding:6px 10px;">Play ▶</button>
                 </div>
             </div>
             <div id="key-help"
-                style="max-width:700px;margin:0 auto 20px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+                style="text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <strong>Tastatur-Steuerung</strong>
                 </div>
                 <ul style="margin:8px 0 0 16px;padding:0;color:#333;line-height:1.4;">
+                    <li><strong>k</strong>: Animation 1-Schritt fortsetzen</li>
+                    <li><strong>K</strong>: Animation pausieren/fortsetzen</li>
                     <li><strong>← / a , → / d</strong>: Kamera um Szene drehen</li>
                     <li><strong>w / s</strong>: Kameraneigung (Pitch) ändern</li>
-                    <li><strong>+ / -</strong>: Rekursion der Kugel erhöhen / verringern (0..6)</li>
                     <li><strong>o</strong>: Orthografische Projektion</li>
                     <li><strong>p</strong>: Perspektivische Projektion</li>
                     <li><strong>f</strong>: Frustum-Projektion</li>
@@ -157,29 +150,6 @@ void main() {
 
         <section id="doc">
             <h2>Dokumentation</h2>
-
-            <div class="shape-section">
-                <h3>Geometrie</h3>
-                <p>Die Szene enthält Generatoren für Torus, Kugel, Würfel und Kegel. Der Würfel-Generator unterstützt
-                    den Parameter <code>inward</code>, sodass er als Innenraum (Wände nach innen) verwendet werden kann.
-                </p>
-                <p>Die rekursive Kugel wird durch sukzessive Unterteilung eines Oktaeders erzeugt. Bei jeder Stufe wird
-                    jede Dreiecksfläche in vier Dreiecke geteilt; die Mittelpunkte werden auf die Kugeloberfläche
-                    projiziert und als gemeinsame Scheitelpunkte wiederverwendet.</p>
-                <p><strong>Quellen / Attribution:</strong> Algorithmus und Implementierung orientieren sich an der
-                    C-Referenzimplementierung von Paul Bourke: <a
-                        href="https://paulbourke.net/geometry/circlesphere/csource3.c" target="_blank"
-                        rel="noopener">paulbourke.net — csource3.c</a>.</p>
-            </div>
-
-            <div class="shape-section">
-                <h3>Beleuchtung</h3>
-                <p>Die Beleuchtung wird pro Fragment im Fragment-Shader berechnet. Es gibt einen Ambient- und einen
-                    Diffuse-Anteil sowie einen Schattenfaktor, der Flächen dunkler macht, die von der Lichtquelle weg
-                    zeigen. Die Lichtrichtung wird in Weltkoordinaten definiert und pro Frame in View-Space
-                    transformiert,
-                    damit Schatten relativ zur Szene stabil bleiben.</p>
-            </div>
         </section>
     </main>
 </body>
