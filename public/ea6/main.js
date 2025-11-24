@@ -41,9 +41,9 @@ var app = (() => {
 		// given in radian.
 		zAngle: Math.PI / 4 + Math.PI,
 		// Angle above the XZ-plane (pitch) in radian. 0 = horizon, positive = above.
-		xAngle: 0.4,
+		xAngle: 0.2,
 		// Distance in XZ-Plane from center when orbiting.
-		distance: 2.5,
+		distance: 1.5,
 	};
 
 
@@ -281,7 +281,7 @@ var app = (() => {
 
 		// Create a dynamic torus in the center that rotates tangent to sphere paths
 		const torusModel = new Model(
-			new Torus({ n: 20, m: 40, r: 0.2, R: 0.5 }),
+			new Torus({ n: 20, m: 40, r: 0.05, R: 0.35 }),
 			gl, prog,
 			{
 				fillstyle: 'fillwireframe',
@@ -293,10 +293,21 @@ var app = (() => {
 			}
 		);
 
-		// Torus rotates to stay tangent to the orbital paths
+		// Calculate bob frequency to sync with rotation
+		// For N complete bob cycles per full rotation:
+		// frequency = (bobsPerRotation × orbitSpeed) / (2π)
+		const bobsPerRotation = 4;  // Complete 4 bobs during one full rotation
+		const bobFrequency = (bobsPerRotation * orbitSpeed) / (2 * Math.PI);
+		const bobPhaseOffset = Math.PI / 4;
+		const bobHeight = 0.17;
+		const bobOffset = -bobHeight / 2;
+
+		// Torus rotates to face the moving spheres when they pass through center
 		const torusAnimator = new ModelAnimator(torusModel, {
 			animationFn: AnimationPresets.combine(
 				AnimationPresets.rotateY(-orbitSpeed),
+				AnimationPresets.rotateX(-orbitSpeed * 2),
+				AnimationPresets.bob(bobHeight, bobFrequency, bobOffset, bobPhaseOffset),
 			)
 		});
 

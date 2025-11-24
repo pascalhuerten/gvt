@@ -166,19 +166,40 @@ class AnimationPresets {
     /**
      * Orbit animation - circular motion around center with optional plane rotation.
      * 
-     * @param {number} radius - Orbital radius
-     * @param {number} speed - Rotation speed in radians per second
+     * Objects follow a parametric circular path: position = center + [radius·cos(ωt + φ), 0, radius·sin(ωt + φ)]
+     * The object automatically rotates to face the direction of movement.
+     * 
+     * @param {number} radius - Orbital radius in world units
+     * @param {number} speed - Angular velocity (ω) in radians per second
      * @param {Array} [center] - Center point [x, y, z] (default [0, 0, 0])
-     * @param {number} [offsetAngle] - Initial angle offset in radians (default 0)
-     * @param {Object} [planeRotation] - Rotate the orbital plane
+     * @param {number} [offsetAngle] - Initial angle offset (φ) in radians (default 0)
+     * @param {Object} [planeRotation] - Rotate the orbital plane to tilt the path
      *   - @param {number} [planeRotation.x] - Rotation around X-axis in radians
      *   - @param {number} [planeRotation.y] - Rotation around Y-axis in radians
      *   - @param {number} [planeRotation.z] - Rotation around Z-axis in radians
      * @returns {Function} Animation update function
      * 
      * @example
-     * // Orbit in tilted plane (45° tilt around X-axis)
-     * AnimationPresets.orbit(1.5, 1.0, [0, 0, 0], 0, { x: Math.PI / 4 })
+     * // Simple orbit at constant radius 1.42, speed 1 rad/s
+     * // Position: center + [1.42·cos(t), 0, 1.42·sin(t)]
+     * AnimationPresets.orbit(1.42, 1.0, [0, 0, 0])
+     * 
+     * @example
+     * // Orbit starting at angle π (opposite side)
+     * // Position: center + [1.42·cos(t + π), 0, 1.42·sin(t + π)]
+     * // At t=0: position = center + [-1.42, 0, 0]
+     * AnimationPresets.orbit(1.42, 1.0, [0, 0, 0], Math.PI)
+     * 
+     * @example
+     * // Orbit in tilted plane (90° rotated around X-axis)
+     * // Standard XZ-plane orbit gets rotated to YZ-plane
+     * // Position moves through YZ plane instead of XZ plane
+     * AnimationPresets.orbit(1.42, 1.0, [0, 0, 0], 0, { x: Math.PI / 2 })
+     * 
+     * @example
+     * // Combined: orbit in tilted YZ-plane with 180° offset
+     * // Starting position on opposite side of rotated plane
+     * AnimationPresets.orbit(1.42, 1.0, [0, 0, 0], Math.PI, { x: Math.PI / 2 })
      */
     static orbit(radius = 2.0, speed = 1.0, center = [0, 0, 0], offsetAngle = 0, planeRotation = {}) {
         return (time, mvMatrix) => {
@@ -219,12 +240,30 @@ class AnimationPresets {
      * 
      * @param {number} amplitude - Height of oscillation
      * @param {number} frequency - Oscillation frequency in Hz
-     * @param {number} [baseY] - Base Y position
+     * @param {number} [baseY] - Base Y position (default 0)
+     * @param {number} [phaseOffset] - Phase offset in radians (default 0)
+     *   - π/2: starts at max height
+     *   - π: starts at middle going down
+     *   - 3π/2: starts at min height
+     *   - 0 or 2π: starts at middle going up
      * @returns {Function} Animation update function
+     * 
+     * @example
+     * // Bob with max height at t=0
+     * AnimationPresets.bob(0.5, 1.0, 0, Math.PI / 2)
+     * 
+     * @example
+     * // Calculate frequency synchronized with rotation
+     * // For N complete bobs per full rotation at angular speed ω:
+     * const bobsPerRotation = 4;
+     * const angularSpeed = 1.0; // rad/s
+     * const frequency = (bobsPerRotation * angularSpeed) / (2 * Math.PI);
+     * const phaseOffset = Math.PI / 2; // Start at peak
+     * AnimationPresets.bob(0.1, frequency, 0, phaseOffset)
      */
-    static bob(amplitude = 0.5, frequency = 1.0, baseY = 0) {
+    static bob(amplitude = 0.5, frequency = 1.0, baseY = 0, phaseOffset = 0) {
         return (time, mvMatrix) => {
-            const y = baseY + amplitude * Math.sin(2 * Math.PI * frequency * time);
+            const y = baseY + amplitude * Math.sin(2 * Math.PI * frequency * time + phaseOffset);
             mat4.translate(mvMatrix, mvMatrix, [0, y, 0]);
         };
     }

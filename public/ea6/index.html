@@ -147,6 +147,158 @@ void main() {
 
         <section id="doc">
             <h2>Dokumentation</h2>
+
+            <!-- ARCHITEKTUR -->
+            <div class="shape-section">
+                <h3>1. Architektur & Verantwortlichkeiten</h3>
+                <h4>Schichten-Struktur</h4>
+                <p>Die Anwendung ist in drei klar abgetrennte Schichten aufgebaut, jede mit eigener Verantwortung:</p>
+
+                <h4>A. Vertex Data Generation (Geometrie-Ebene)</h4>
+                <ul style="margin: 10px 0 20px 0;">
+                    <li><strong>Dateien:</strong> <code>sphere.js</code>, <code>torus.js</code>, <code>plane.js</code>,
+                        etc.</li>
+                    <li><strong>Verantwortung:</strong> Erzeugt reine Geometrie-Daten (Vertices, Normals, Indizes)</li>
+                    <li><strong>Klasse:</strong> Jede Geometry-Klasse (z.B. <code>Sphere</code>, <code>Torus</code>)
+                        erbt von <code>VertexDataGenerator</code></li>
+                    <li><strong>Methoden:</strong>
+                        <ul>
+                            <li><code>generateVertices()</code> - Berechnet Position aller Punkte auf der Fläche</li>
+                            <li><code>generateNormals()</code> - Berechnet Oberflächennormalen für korrekte Beleuchtung
+                            </li>
+                            <li><code>generateIndices()</code> - Definiert welche Vertices zu Dreiecken verbunden werden
+                            </li>
+                        </ul>
+                    </li>
+                    <li><strong>Keine Abhängigkeiten:</strong> Kennt nichts von Rendering, Animation oder Szene</li>
+                </ul>
+
+                <h4>B. Model Rendering (Rendering-Ebene)</h4>
+                <ul style="margin: 10px 0 20px 0;">
+                    <li><strong>Datei:</strong> <code>Model.js</code></li>
+                    <li><strong>Verantwortung:</strong> Verwaltet WebGL-Buffer und Rendering-Optionen</li>
+                    <li><strong>Klasse:</strong> <code>Model</code></li>
+                    <li><strong>Aufgaben:</strong>
+                        <ul>
+                            <li>Nimmt Vertex-Daten von VertexDataGenerator entgegen</li>
+                            <li>Erstellt VBOs (Vertex Buffer Objects) und IBOs (Index Buffer Objects)</li>
+                            <li>Speichert Rendering-Status (Farbe, Wireframe/Solid, Transform)</li>
+                            <li>Speichert die <code>mvMatrix</code> (Model-View Matrix) für Position/Rotation/Skalierung
+                            </li>
+                        </ul>
+                    </li>
+                    <li><strong>Entkoppelung:</strong> Kennt nicht wie das Modell bewegt wird, nur wo es aktuell ist
+                    </li>
+                </ul>
+
+                <h4>C. Animation & Transformation (Animation-Ebene)</h4>
+                <ul style="margin: 10px 0 20px 0;">
+                    <li><strong>Datei:</strong> <code>ModelAnimator.js</code></li>
+                    <li><strong>Verantwortung:</strong> Modifiziert die mvMatrix eines Models im Laufe der Zeit</li>
+                    <li><strong>Klasse:</strong> <code>ModelAnimator</code></li>
+                    <li><strong>Konzept:</strong>
+                        <ul>
+                            <li>Akzeptiert ein <code>animationFn</code> - eine Funktion die sagt wie sich ein Objekt
+                                bewegen soll</li>
+                            <li>Ruft diese Funktion jeden Frame mit der verstrichenen Zeit auf</li>
+                            <li>Die Funktion modifiziert die mvMatrix entsprechend</li>
+                        </ul>
+                    </li>
+                    <li><strong>Presetsystem:</strong> <code>AnimationPresets</code> stellt vordefinierte
+                        Bewegungsmuster bereit
+                        <ul>
+                            <li><code>rotateY(speed)</code> - Rotation um Y-Achse</li>
+                            <li><code>orbit(radius, speed, center, offset, planeRotation)</code> - Kreisbahn mit
+                                optionaler Neigung</li>
+                            <li><code>combine(...functions)</code> - Kombiniert mehrere Animationen</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            <!-- SYNCHRONISATION -->
+            <div class="shape-section">
+                <h3>2. Synchronisation: Kugeln & Torus</h3>
+                <h4>Das Problem</h4>
+                <p>Vier Kugeln umkreisen Offsets in 90° geneigten Ebenen. Ein Torus rotiert in der Mitte. Die
+                    Herausforderung:</p>
+                <ul>
+                    <li>Kugeln müssen immer durch das Loch des Torus fliegen</li>
+                    <li>Kugeln dürfen nicht mit dem Torus oder sich selbst kollidieren</li>
+                    <li>Der Torus muss sich so drehen, dass das Loch immer in Flugrichtung zeigt</li>
+                </ul>
+
+                <h4>Die Lösung: Synchronisation durch Winkelgeschwindigkeit</h4>
+                <p>Beide Bewegungen teilen die gleiche <strong>Winkelgeschwindigkeit (orbitSpeed)</strong>:</p>
+
+                <div class="math-formula">
+                    Kugelposition(t) = center + radius · (cos(ωt + φ), 0, sin(ωt + φ))<br>
+                    Torusrotation(t) = -ωt (um Y-Achse)<br>
+                    <br>
+                    wobei:<br>
+                    ω = Winkelgeschwindigkeit (orbitSpeed = 1.0 rad/s)<br>
+                    t = Zeit in Sekunden<br>
+                    φ = Offset (startAngle) für jede Kugel<br>
+                </div>
+
+                <h4>Torusrotation & Bewegung</h4>
+                <p>Der Torus kombiniert drei Bewegungen für eine natürlichere, dynamischere Bewegung:</p>
+                <div class="math-formula">
+                    rotationY(t) = -ωt<br>
+                    rotationX(t) = -2ωt (doppelte Geschwindigkeit)<br>
+                    bob(t) = amplitude · sin(2π · frequency · t + phaseOffset)<br>
+                    <br>
+                    wobei:<br>
+                    ω = orbitSpeed = 1.0 rad/s<br>
+                </div>
+
+                <h4>Code Beispiel (aus main.js)</h4>
+                <div class="math-formula">
+                    const orbitSpeed = 1.0; // radians/sec<br>
+                    const bobsPerRotation = 4;<br>
+                    const bobFrequency = (bobsPerRotation * orbitSpeed) / (2 * Math.PI);<br>
+                    const bobPhaseOffset = Math.PI / 2;<br>
+                    <br>
+                    // Kugeln: alle benutzen gleiche orbitSpeed<br>
+                    animationFn: AnimationPresets.orbit(<br>
+                    &nbsp;&nbsp;orbitRadius, // 1.42<br>
+                    &nbsp;&nbsp;orbitSpeed, // 1.0 (positiv = vorwärts)<br>
+                    &nbsp;&nbsp;offset.center,<br>
+                    &nbsp;&nbsp;offset.offset // π oder 3π<br>
+                    )<br>
+                    <br>
+                    // Torus: kombinierte Rotationen und Bob<br>
+                    animationFn: AnimationPresets.combine(<br>
+                    &nbsp;&nbsp;AnimationPresets.rotateY(-orbitSpeed),<br>
+                    &nbsp;&nbsp;AnimationPresets.rotateX(-orbitSpeed * 2),<br>
+                    &nbsp;&nbsp;AnimationPresets.bob(0.1, bobFrequency, 0.02, bobPhaseOffset)<br>
+                    )<br>
+                </div>
+            </div>
+            <!-- ORBIT MATHEMATIK & MATRIX TRANSFORMATIONEN -->
+            <div class="shape-section">
+                <h3>3. Orbit-Animation: Mathematik & WebGL Matrix-Transformationen</h3>
+
+                <h4>Parametrische Kreisbahn</h4>
+                <p>Die Orbit-Position wird für jedes Frame berechnet mit:</p>
+                <div class="math-formula">
+                    angle(t) = ω·t + φ<br>
+                    position(t) = center + radius·(cos(angle), 0, sin(angle))<br>
+                    <br>
+                    wobei ω = Winkelgeschwindigkeit, φ = Startwinkel, t = Zeit
+                </div>
+
+                <h4>WebGL Matrix-Transformationen</h4>
+                <p>Die Position wird durch Translation und Rotation auf die mvMatrix angewendet (wichtig: Translate vor
+                    Rotate, da Matrixmultiplikation nicht kommutativ):</p>
+                <div class="math-formula">
+                    const angle = speed * time + offsetAngle;<br>
+                    const x = radius * Math.cos(angle);<br>
+                    const z = radius * Math.sin(angle);<br>
+                    <br>
+                    mat4.translate(mvMatrix, mvMatrix, [center[0] + x, center[1], center[2] + z]);<br>
+                    mat4.rotateY(mvMatrix, mvMatrix, -angle);
+                </div>
+            </div>
         </section>
     </main>
 </body>
