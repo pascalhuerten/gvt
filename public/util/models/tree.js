@@ -23,10 +23,11 @@ class Tree extends VertexDataGenerator {
         const bottomY = -trunkHeight * 0.5;
         const topY = trunkHeight * 0.5;
 
-        // Bottom center
+        // Create separate geometry for caps and sides so normals are correct
+        // Bottom center (cap)
         vertices.push(0, bottomY, 0); normals.push(0, -1, 0); colors.push(trunkColor[0], trunkColor[1], trunkColor[2]); const bottomCenter = idx++;
-        // Bottom ring
-        const bottomRingStart = idx;
+        // Bottom cap ring (vertical -Y normals)
+        const bottomCapRingStart = idx;
         for (let i = 0; i < trunkSegments; i++) {
             const th = (i / trunkSegments) * Math.PI * 2;
             const x = Math.cos(th) * trunkRadius;
@@ -36,42 +37,69 @@ class Tree extends VertexDataGenerator {
             colors.push(trunkColor[0], trunkColor[1], trunkColor[2]);
             idx++;
         }
-        // Top ring (side normals approximated)
-        const topRingStart = idx;
+        // Top center (cap)
+        vertices.push(0, topY, 0); normals.push(0, 1, 0); colors.push(trunkColor[0], trunkColor[1], trunkColor[2]); const topCenter = idx++;
+        // Top cap ring (vertical +Y normals)
+        const topCapRingStart = idx;
         for (let i = 0; i < trunkSegments; i++) {
             const th = (i / trunkSegments) * Math.PI * 2;
             const x = Math.cos(th) * trunkRadius;
             const z = Math.sin(th) * trunkRadius;
             vertices.push(x, topY, z);
-            normals.push(x / trunkRadius, 0, z / trunkRadius);
+            normals.push(0, 1, 0);
             colors.push(trunkColor[0], trunkColor[1], trunkColor[2]);
             idx++;
         }
-        // Top center
-        vertices.push(0, topY, 0); normals.push(0, 1, 0); colors.push(trunkColor[0], trunkColor[1], trunkColor[2]); const topCenter = idx++;
-
-        // Bottom cap
+        // Bottom cap triangles
         for (let i = 0; i < trunkSegments; i++) {
-            const b = bottomRingStart + i;
-            const c = bottomRingStart + ((i + 1) % trunkSegments);
+            const b = bottomCapRingStart + i;
+            const c = bottomCapRingStart + ((i + 1) % trunkSegments);
             indicesTris.push(bottomCenter, b, c);
         }
-        // Sides
+        // Top cap triangles
         for (let i = 0; i < trunkSegments; i++) {
-            const b1 = bottomRingStart + i;
-            const b2 = bottomRingStart + ((i + 1) % trunkSegments);
-            const t1 = topRingStart + i;
-            const t2 = topRingStart + ((i + 1) % trunkSegments);
+            const b = topCapRingStart + i;
+            const c = topCapRingStart + ((i + 1) % trunkSegments);
+            indicesTris.push(topCenter, c, b);
+        }
+
+        // Side rings with radial normals (use separate vertices from caps)
+        const sideBottomRingStart = idx;
+        for (let i = 0; i < trunkSegments; i++) {
+            const th = (i / trunkSegments) * Math.PI * 2;
+            const x = Math.cos(th) * trunkRadius;
+            const z = Math.sin(th) * trunkRadius;
+            vertices.push(x, bottomY, z);
+            // radial normal
+            const nx = x / trunkRadius;
+            const nz = z / trunkRadius;
+            normals.push(nx, 0, nz);
+            colors.push(trunkColor[0], trunkColor[1], trunkColor[2]);
+            idx++;
+        }
+        const sideTopRingStart = idx;
+        for (let i = 0; i < trunkSegments; i++) {
+            const th = (i / trunkSegments) * Math.PI * 2;
+            const x = Math.cos(th) * trunkRadius;
+            const z = Math.sin(th) * trunkRadius;
+            vertices.push(x, topY, z);
+            const nx = x / trunkRadius;
+            const nz = z / trunkRadius;
+            normals.push(nx, 0, nz);
+            colors.push(trunkColor[0], trunkColor[1], trunkColor[2]);
+            idx++;
+        }
+        // Side quads (two triangles per segment)
+        for (let i = 0; i < trunkSegments; i++) {
+            const b1 = sideBottomRingStart + i;
+            const b2 = sideBottomRingStart + ((i + 1) % trunkSegments);
+            const t1 = sideTopRingStart + i;
+            const t2 = sideTopRingStart + ((i + 1) % trunkSegments);
             indicesTris.push(b1, t1, t2);
             indicesTris.push(b1, t2, b2);
+            // wireframe indices
             indicesLines.push(b1, b2);
             indicesLines.push(b1, t1);
-        }
-        // Top cap
-        for (let i = 0; i < trunkSegments; i++) {
-            const b = topRingStart + i;
-            const c = topRingStart + ((i + 1) % trunkSegments);
-            indicesTris.push(topCenter, c, b);
         }
 
         // Foliage sphere: use existing Sphere generator

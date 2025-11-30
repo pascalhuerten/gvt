@@ -9,6 +9,7 @@ class Pine extends VertexDataGenerator {
         const trunkRadius = this.getParam('trunkRadius', 0.1);
         const trunkHeight = this.getParam('trunkHeight', 0.3);
         const trunkSegments = Math.max(6, Math.floor(this.getParam('trunkSegments', 12)));
+        const trunkColor = this.getParam('trunkColor', [0.50, 0.38, 0.28]);
 
         // Three cone layers for foliage
         const cone1Radius = this.getParam('cone1Radius', 0.5);
@@ -26,6 +27,7 @@ class Pine extends VertexDataGenerator {
         const normals = [];
         const indicesTris = [];
         const indicesLines = [];
+        const colors = [];
 
         let vertexIndex = 0;
 
@@ -36,6 +38,7 @@ class Pine extends VertexDataGenerator {
         // Bottom cap center
         vertices.push(0, trunkBottom, 0);
         normals.push(0, -1, 0);
+        colors.push(trunkColor[0], trunkColor[1], trunkColor[2]);
         const trunkBottomCenterIdx = vertexIndex++;
 
         // Bottom cap ring
@@ -46,6 +49,7 @@ class Pine extends VertexDataGenerator {
             const z = Math.sin(theta) * trunkRadius;
             vertices.push(x, trunkBottom, z);
             normals.push(0, -1, 0);
+            colors.push(trunkColor[0], trunkColor[1], trunkColor[2]);
             vertexIndex++;
         }
 
@@ -57,12 +61,14 @@ class Pine extends VertexDataGenerator {
             const z = Math.sin(theta) * trunkRadius;
             vertices.push(x, trunkTop, z);
             normals.push(x / trunkRadius, 0, z / trunkRadius); // Side normal
+            colors.push(trunkColor[0], trunkColor[1], trunkColor[2]);
             vertexIndex++;
         }
 
         // Top cap center
         vertices.push(0, trunkTop, 0);
         normals.push(0, 1, 0);
+        colors.push(trunkColor[0], trunkColor[1], trunkColor[2]);
         const trunkTopCenterIdx = vertexIndex++;
 
         // Trunk bottom cap triangles
@@ -96,12 +102,13 @@ class Pine extends VertexDataGenerator {
         }
 
         // ===== HELPER: Add a cone at given Y position =====
-        const addCone = (baseY, radius, height) => {
+        const addCone = (baseY, radius, height, foliageColor) => {
             const apexY = baseY + height;
 
             // Base center for base disk
             vertices.push(0, baseY, 0);
             normals.push(0, -1, 0);
+            colors.push(foliageColor[0], foliageColor[1], foliageColor[2]);
             const baseCenterIdx = vertexIndex++;
 
             // Create base ring vertices for base disk (with downward normals)
@@ -112,6 +119,7 @@ class Pine extends VertexDataGenerator {
                 const z = Math.sin(theta) * radius;
                 vertices.push(x, baseY, z);
                 normals.push(0, -1, 0); // Base disk normal points down
+                colors.push(foliageColor[0], foliageColor[1], foliageColor[2]);
                 vertexIndex++;
             }
 
@@ -144,6 +152,7 @@ class Pine extends VertexDataGenerator {
                 // Add apex vertex for this triangle
                 vertices.push(0, apexY, 0);
                 normals.push(apexNormalX, apexNormalY, apexNormalZ);
+                colors.push(foliageColor[0], foliageColor[1], foliageColor[2]);
                 const apex = vertexIndex++;
 
                 // Add base vertices for this triangle with their smooth normals
@@ -153,6 +162,7 @@ class Pine extends VertexDataGenerator {
                     sideNormalY,
                     (z2 * sideNormalXZ) / radius
                 );
+                colors.push(foliageColor[0], foliageColor[1], foliageColor[2]);
                 const b1 = vertexIndex++;
 
                 vertices.push(x1, baseY, z1);
@@ -161,6 +171,7 @@ class Pine extends VertexDataGenerator {
                     sideNormalY,
                     (z1 * sideNormalXZ) / radius
                 );
+                colors.push(foliageColor[0], foliageColor[1], foliageColor[2]);
                 const b2 = vertexIndex++;
 
                 // Triangle indices
@@ -175,19 +186,21 @@ class Pine extends VertexDataGenerator {
         // Position the three cones above the trunk
         // Cone 1 (bottom layer) starts just above trunk top
         const cone1BaseY = trunkTop;
-        addCone(cone1BaseY, cone1Radius, cone1Height);
+        const foliageColor = this.getParam('foliageColor', [0.20, 0.60, 0.28]);
+        addCone(cone1BaseY, cone1Radius, cone1Height, foliageColor);
 
         // Cone 2 (middle layer) overlaps slightly with cone 1
         const cone2BaseY = cone1BaseY + cone1Height * 0.6;
-        addCone(cone2BaseY, cone2Radius, cone2Height);
+        addCone(cone2BaseY, cone2Radius, cone2Height, foliageColor);
 
         // Cone 3 (top layer) overlaps slightly with cone 2
         const cone3BaseY = cone2BaseY + cone2Height * 0.6;
-        addCone(cone3BaseY, cone3Radius, cone3Height);
+        addCone(cone3BaseY, cone3Radius, cone3Height, foliageColor);
 
         this.vertices = new Float32Array(vertices);
         this.normals = new Float32Array(normals);
         this.indicesTris = new Uint16Array(indicesTris);
         this.indicesLines = new Uint16Array(indicesLines);
+        this.colors = new Float32Array(colors);
     }
 }

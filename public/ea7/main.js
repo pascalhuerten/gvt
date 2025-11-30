@@ -15,7 +15,7 @@ var app = (() => {
 	// Global light defined in world space. We'll transform it into view space
 	// every frame so lighting stays fixed relative to the scene (not the camera).
 	const light = {
-		direction: [0.2, -0.5, -0.1]
+		direction: [0.2, -0.3, -0.1]
 	};
 
 	let camera = {
