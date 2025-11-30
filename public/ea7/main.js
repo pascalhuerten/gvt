@@ -226,6 +226,11 @@ var app = (() => {
 		prog.fogNearUniform = gl.getUniformLocation(prog, "uFogNear");
 		prog.fogStrengthUniform = gl.getUniformLocation(prog, "uFogStrength");
 		prog.fogDensityUniform = gl.getUniformLocation(prog, "uFogDensity");
+		// Sky uniforms
+		prog.isSkyUniform = gl.getUniformLocation(prog, "uIsSky");
+		prog.skyRadiusUniform = gl.getUniformLocation(prog, "uSkyRadius");
+		prog.skyHazeStrengthUniform = gl.getUniformLocation(prog, "uSkyHazeStrength");
+		prog.skyDesatStrengthUniform = gl.getUniformLocation(prog, "uSkyDesatStrength");
 	}
 
 	/**
@@ -248,9 +253,21 @@ var app = (() => {
 		gl.uniform1f(prog.fogNearUniform, 4);
 		gl.uniform1f(prog.fogStrengthUniform, 0.95);
 		gl.uniform1f(prog.fogDensityUniform, 0.15);
+		// Sky effect defaults
+		if (prog.skyHazeStrengthUniform) gl.uniform1f(prog.skyHazeStrengthUniform, 0.35);
+		if (prog.skyDesatStrengthUniform) gl.uniform1f(prog.skyDesatStrengthUniform, 0.12);
 	}
 
 	function initModels() {
+		// Create skydome first (background). Use large radius.
+		const skyGen = new Skydome({ radius: 60.0, stacks: 24, slices: 64 });
+		const skyModel = new Model(skyGen, gl, prog, {
+			fillstyle: 'wireframefill',
+			color: [1, 1, 1], // unused when vertex colors active
+			transform: { translation: [0, 0, 0] }
+		});
+		skyModel.isSky = true;
+		models.push(skyModel);
 		// Generate a forest of pine trees randomly on the XZ plane
 		createForest({
 			count: 160,
@@ -621,6 +638,11 @@ var app = (() => {
 			if (!hasVertexColor && prog.modelColorUniform) {
 				gl.uniform3fv(prog.modelColorUniform, model.color || [1.0, 1.0, 1.0]);
 			}
+			// Sky flag
+			if (prog.isSkyUniform) gl.uniform1i(prog.isSkyUniform, model.isSky ? 1 : 0);
+			if (model.isSky && prog.skyRadiusUniform && model.generator && model.generator.radius) {
+				gl.uniform1f(prog.skyRadiusUniform, model.generator.radius);
+			}
 
 			// Per-model lighting override (e.g., softer for clouds)
 			const amb = (model.lighting && model.lighting.ambient !== undefined) ? model.lighting.ambient : prog._defaultAmbient;
@@ -679,10 +701,13 @@ var app = (() => {
 		// Setup rendering tris.
 		const fill = (model.fillstyle.search(/fill/) != -1);
 		if (fill) {
+			// For sky: disable depth write so scene draws over it
+			if (model.isSky) gl.depthMask(false);
 			gl.enableVertexAttribArray(prog.normalAttrib);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
 			gl.drawElements(gl.TRIANGLES, model.iboTris.numberOfElements,
 				gl.UNSIGNED_SHORT, 0);
+			if (model.isSky) gl.depthMask(true);
 		}
 
 		// Setup rendering lines.

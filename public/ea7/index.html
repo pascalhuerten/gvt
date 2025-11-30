@@ -42,6 +42,7 @@
     <script src="../util/models/tree.js"></script>
     <script src="../util/models/bush.js"></script>
     <script src="../util/models/cloud.js"></script>
+    <script src="../util/models/skydome.js"></script>
     <script src="../util/models/plane.js"></script>
     <script src="../util/models/Model.js"></script>
     <script src="../util/models/ModelAnimator.js"></script>
@@ -60,6 +61,8 @@ uniform mat3 uNormalMatrix;
 uniform float uCurveStart;
 uniform float uCurveStrength;
 uniform float uCurveExponent;
+uniform bool uIsSky; // sky pass flag
+uniform float uSkyRadius; // for gradient calculation if needed
 
 out vec3 vNormal;
 out vec3 vPosition;
@@ -69,12 +72,14 @@ void main(){
 	// compute position in view (model-view) space
 	vec4 mvPos = uMVMatrix * vec4(aPosition, 1.0);
 
-    // Depth-based downward curvature for distant vertices
-    float depthVS = abs(mvPos.z);
-    float tCurve = clamp((depthVS - uCurveStart) / max(0.0001, depthVS + 1.0), 0.0, 1.0);
-    float curveAmt = uCurveStrength * pow(tCurve, uCurveExponent);
-    mvPos.y -= curveAmt;
-	gl_Position = uPMatrix * mvPos;
+    // Depth-based downward curvature for distant vertices (skip for sky)
+    if (!uIsSky) {
+        float depthVS = abs(mvPos.z);
+        float tCurve = clamp((depthVS - uCurveStart) / max(0.0001, depthVS + 1.0), 0.0, 1.0);
+        float curveAmt = uCurveStrength * pow(tCurve, uCurveExponent);
+        mvPos.y -= curveAmt;
+    }
+    gl_Position = uPMatrix * mvPos;
 	// pass normal and position to fragment shader
 	vNormal = normalize(uNormalMatrix * aNormal);
 	vPosition = mvPos.xyz;
@@ -97,10 +102,27 @@ uniform vec3  uFogColor;           // target color to blend towards
 uniform float uFogNear;            // start fog distance
 uniform float uFogStrength;        // 0..1 overall fog influence
 uniform float uFogDensity;         // exponential fog density
+uniform bool uIsSky;               // sky pass flag
+uniform float uSkyRadius;          // skydome radius
+uniform float uSkyHazeStrength;    // 0..1 how much horizon haze
+uniform float uSkyDesatStrength;   // 0..1 desaturation near horizon
 
 out vec4 fragColor;
 
 void main() {
+    if (uIsSky) {
+        // Simple atmospheric gradient: use normalized height in view space
+        float h = clamp((vPosition.y + uSkyRadius * 0.2) / (uSkyRadius * 1.2), 0.0, 1.0);
+        // Controlled haze towards fog color near horizon
+        float haze = uSkyHazeStrength * smoothstep(0.0, 0.35, 1.0 - h);
+        vec3 hazeColor = mix(vColor, uFogColor, haze);
+        // Controlled desaturation at lower altitudes
+        float desat = uSkyDesatStrength * (1.0 - h);
+        float gray = dot(hazeColor, vec3(0.299,0.587,0.114));
+        vec3 finalCol = mix(hazeColor, vec3(gray), desat);
+        fragColor = vec4(finalCol, 1.0);
+        return;
+    }
 	vec3 N = normalize(vNormal);
 	vec3 L = normalize(uLightDirection);
 	float diffuse = max(dot(N, -L), 0.0);
