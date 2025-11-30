@@ -232,17 +232,21 @@ var app = (() => {
 	 * Initialize lighting parameters.
 	 */
 	function initLighting() {
-		gl.uniform1f(prog.ambientStrengthUniform, 0.35);
-		gl.uniform1f(prog.shadowStrengthUniform, 0.6);
-		gl.uniform1f(prog.shadowExpUniform, 2.0);
+		// Store defaults so we can override per-model in render
+		prog._defaultAmbient = 0.35;
+		prog._defaultShadowStrength = 0.6;
+		prog._defaultShadowExp = 2.0;
+		gl.uniform1f(prog.ambientStrengthUniform, prog._defaultAmbient);
+		gl.uniform1f(prog.shadowStrengthUniform, prog._defaultShadowStrength);
+		gl.uniform1f(prog.shadowExpUniform, prog._defaultShadowExp);
 		// Depth curvature defaults: subtle effect far away
 		gl.uniform1f(prog.curveStartUniform, 10.0);
 		gl.uniform1f(prog.curveStrengthUniform, 1.0);
 		gl.uniform1f(prog.curveExponentUniform, 1.0);
 		// Fog setup: soft bright sky-like fog
 		gl.uniform3fv(prog.fogColorUniform, new Float32Array([0.85, 0.92, 0.98]));
-		gl.uniform1f(prog.fogNearUniform, 2.0);
-		gl.uniform1f(prog.fogStrengthUniform, 0.7);
+		gl.uniform1f(prog.fogNearUniform, 4);
+		gl.uniform1f(prog.fogStrengthUniform, 0.95);
 		gl.uniform1f(prog.fogDensityUniform, 0.15);
 	}
 
@@ -267,6 +271,14 @@ var app = (() => {
 		);
 
 		models.push(floorModel);
+
+		// Create a few slow-moving clouds
+		createClouds({
+			count: 10,
+			areaSize: 32.0,
+			baseY: 4.5,
+			minSpacing: 1.0
+		});
 	}
 
 	/**
@@ -363,6 +375,67 @@ var app = (() => {
 				}
 			);
 			models.push(model);
+		}
+	}
+
+	/**
+	 * Create cloud models distributed in the sky with gentle motion.
+	 */
+	function createClouds({ count = 4, areaSize = 18.0, baseY = 5.0, minSpacing = 2.5 } = {}) {
+		const half = areaSize * 0.5;
+		const positions = [];
+		const maxAttempts = 200;
+		// Shared drift direction for all clouds
+		const globalDir = Math.random() * Math.PI * 2;
+
+		function isValid(x, z) {
+			for (const p of positions) {
+				const dx = x - p[0];
+				const dz = z - p[1];
+				if (dx * dx + dz * dz < minSpacing * minSpacing) return false;
+			}
+			return true;
+		}
+
+		for (let i = 0; i < count; i++) {
+			let placed = false;
+			for (let a = 0; a < maxAttempts && !placed; a++) {
+				const x = (Math.random() * 2 - 1) * half;
+				const z = (Math.random() * 2 - 1) * half;
+				if (!isValid(x, z)) continue;
+				positions.push([x, z]);
+				placed = true;
+			}
+		}
+
+		for (const [x, z] of positions) {
+			const puffCount = 6 + Math.floor(Math.random() * 3);
+			const puffRadius = 0.75 + Math.random() * 0.4;
+			const verticalScale = 0.65 + Math.random() * 0.15;
+			const cloud = new Model(
+				new Cloud({ puffCount, puffRadius, verticalScale, baseRadius: 0.7, stretchFactor: 2.5, stretchDirX: Math.cos(globalDir), stretchDirZ: Math.sin(globalDir) }),
+				gl, prog,
+				{
+					fillstyle: 'fill',
+					color: [0.97, 0.98, 1.0],
+					transform: { translation: [x, baseY, z], scale: 1.0 + Math.random() * 0.4 }
+				}
+			);
+			// Softer lighting for clouds
+			cloud.lighting = { ambient: 0.95, shadowStrength: 0.2, shadowExp: 6.0 };
+			models.push(cloud);
+
+			// Animate cloud with slow drift along XZ
+			const speed = 0.1 + Math.random() * 0.08; // units/sec
+			const vx = Math.cos(globalDir) * speed;
+			const vz = Math.sin(globalDir) * speed;
+			const animFn = (time, mv) => {
+				const dx = vx * time;
+				const dz = vz * time;
+				mat4.translate(mv, mv, [dx, 0, dz]);
+			};
+			const animator = new ModelAnimator(cloud, { animationFn: animFn });
+			animators.push(animator);
 		}
 	}
 
@@ -548,6 +621,14 @@ var app = (() => {
 			if (!hasVertexColor && prog.modelColorUniform) {
 				gl.uniform3fv(prog.modelColorUniform, model.color || [1.0, 1.0, 1.0]);
 			}
+
+			// Per-model lighting override (e.g., softer for clouds)
+			const amb = (model.lighting && model.lighting.ambient !== undefined) ? model.lighting.ambient : prog._defaultAmbient;
+			const sh = (model.lighting && model.lighting.shadowStrength !== undefined) ? model.lighting.shadowStrength : prog._defaultShadowStrength;
+			const shExp = (model.lighting && model.lighting.shadowExp !== undefined) ? model.lighting.shadowExp : prog._defaultShadowExp;
+			gl.uniform1f(prog.ambientStrengthUniform, amb);
+			gl.uniform1f(prog.shadowStrengthUniform, sh);
+			gl.uniform1f(prog.shadowExpUniform, shExp);
 
 			draw(model);
 		}
