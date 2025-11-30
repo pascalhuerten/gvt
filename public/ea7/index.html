@@ -61,6 +61,7 @@ uniform mat3 uNormalMatrix;
 uniform float uCurveStart;
 uniform float uCurveStrength;
 uniform float uCurveExponent;
+uniform float uCurveRadius; // Earth-like curvature radius (same units as scene)
 uniform bool uIsSky; // sky pass flag
 uniform float uSkyRadius; // for gradient calculation if needed
 
@@ -72,12 +73,18 @@ void main(){
 	// compute position in view (model-view) space
 	vec4 mvPos = uMVMatrix * vec4(aPosition, 1.0);
 
-    // Depth-based downward curvature for distant vertices (skip for sky)
+    // Earth-like curvature: quadratic sagitta drop based on horizontal distance
+    // Use view-space horizontal distance (XZ) and a sphere radius.
     if (!uIsSky) {
-        float depthVS = abs(mvPos.z);
-        float tCurve = clamp((depthVS - uCurveStart) / max(0.0001, depthVS + 1.0), 0.0, 1.0);
-        float curveAmt = uCurveStrength * pow(tCurve, uCurveExponent);
-        mvPos.y -= curveAmt;
+        float d = length(mvPos.xz);
+        // Ease-in the effect to avoid bending right at the camera
+        float tCurve = smoothstep(uCurveStart, uCurveStart * 2.0, d);
+        tCurve = pow(tCurve, max(0.0001, uCurveExponent));
+        // Sagitta: drop = R - sqrt(R^2 - d^2)  (approx ~ d^2/(2R) for small d)
+        float R = max(0.0001, uCurveRadius);
+        float inside = max(0.0, R * R - d * d);
+        float drop = (R - sqrt(inside));
+        mvPos.y -= drop * uCurveStrength * tCurve;
     }
     gl_Position = uPMatrix * mvPos;
 	// pass normal and position to fragment shader

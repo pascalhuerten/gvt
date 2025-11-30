@@ -220,6 +220,7 @@ var app = (() => {
 		prog.curveStartUniform = gl.getUniformLocation(prog, "uCurveStart");
 		prog.curveStrengthUniform = gl.getUniformLocation(prog, "uCurveStrength");
 		prog.curveExponentUniform = gl.getUniformLocation(prog, "uCurveExponent");
+		prog.curveRadiusUniform = gl.getUniformLocation(prog, "uCurveRadius");
 
 		// Model color and lighting.
 		prog.modelColorUniform = gl.getUniformLocation(prog, "uModelColor");
@@ -253,10 +254,12 @@ var app = (() => {
 		gl.uniform1f(prog.ambientStrengthUniform, prog._defaultAmbient);
 		gl.uniform1f(prog.shadowStrengthUniform, prog._defaultShadowStrength);
 		gl.uniform1f(prog.shadowExpUniform, prog._defaultShadowExp);
-		// Depth curvature defaults: subtle effect far away
-		gl.uniform1f(prog.curveStartUniform, 10.0);
+		// Depth curvature defaults: Earth-like shape based on radius
+		// uCurveStrength scales drop (1.0 = physical sagitta, <1.0 softer)
+		gl.uniform1f(prog.curveStartUniform, 5.0);
 		gl.uniform1f(prog.curveStrengthUniform, 1.0);
 		gl.uniform1f(prog.curveExponentUniform, 1.0);
+		if (prog.curveRadiusUniform) gl.uniform1f(prog.curveRadiusUniform, 150.0);
 		// Fog setup: soft bright sky-like fog
 		gl.uniform3fv(prog.fogColorUniform, new Float32Array([0.85, 0.92, 0.98]));
 		gl.uniform1f(prog.fogNearUniform, 4);
@@ -273,7 +276,7 @@ var app = (() => {
 		const skyModel = new Model(skyGen, gl, prog, {
 			fillstyle: 'fill',
 			color: [1, 1, 1], // unused when vertex colors active
-			transform: { translation: [0, 0, 0] }
+			transform: { translation: [0, -10, 0] }
 		});
 		skyModel.isSky = true;
 		models.push(skyModel);
