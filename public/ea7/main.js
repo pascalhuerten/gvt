@@ -20,7 +20,7 @@ var app = (() => {
 
 	let camera = {
 		// First-person camera state
-		eye: [0, 0.3, 3], // start slightly above ground and away from center
+		eye: [0, 0.3, 0], // start slightly above ground and away from center
 		center: [0, 0.3, 2],
 		up: [0, 1, 0],
 		fovy: 80.0 * Math.PI / 180,
@@ -208,14 +208,24 @@ var app = (() => {
 
 		// Normal Matrix.
 		prog.normalMatrixUniform = gl.getUniformLocation(prog, "uNormalMatrix");
+		// Curvature uniforms (vertex shader)
+		prog.curveStartUniform = gl.getUniformLocation(prog, "uCurveStart");
+		prog.curveStrengthUniform = gl.getUniformLocation(prog, "uCurveStrength");
+		prog.curveExponentUniform = gl.getUniformLocation(prog, "uCurveExponent");
 
 		// Model color and lighting.
 		prog.modelColorUniform = gl.getUniformLocation(prog, "uModelColor");
+		prog.useVertexColorUniform = gl.getUniformLocation(prog, "uUseVertexColor");
 		prog.lightDirectionUniform = gl.getUniformLocation(prog, "uLightDirection");
 		prog.ambientStrengthUniform = gl.getUniformLocation(prog, "uAmbientStrength");
 		// Shadow / tint uniforms
 		prog.shadowStrengthUniform = gl.getUniformLocation(prog, "uShadowStrength");
 		prog.shadowExpUniform = gl.getUniformLocation(prog, "uShadowExponent");
+		// Fog uniforms
+		prog.fogColorUniform = gl.getUniformLocation(prog, "uFogColor");
+		prog.fogNearUniform = gl.getUniformLocation(prog, "uFogNear");
+		prog.fogStrengthUniform = gl.getUniformLocation(prog, "uFogStrength");
+		prog.fogDensityUniform = gl.getUniformLocation(prog, "uFogDensity");
 	}
 
 	/**
@@ -225,13 +235,22 @@ var app = (() => {
 		gl.uniform1f(prog.ambientStrengthUniform, 0.35);
 		gl.uniform1f(prog.shadowStrengthUniform, 0.6);
 		gl.uniform1f(prog.shadowExpUniform, 2.0);
+		// Depth curvature defaults: subtle effect far away
+		gl.uniform1f(prog.curveStartUniform, 10.0);
+		gl.uniform1f(prog.curveStrengthUniform, 1.0);
+		gl.uniform1f(prog.curveExponentUniform, 1.0);
+		// Fog setup: soft bright sky-like fog
+		gl.uniform3fv(prog.fogColorUniform, new Float32Array([0.85, 0.92, 0.98]));
+		gl.uniform1f(prog.fogNearUniform, 2.0);
+		gl.uniform1f(prog.fogStrengthUniform, 0.7);
+		gl.uniform1f(prog.fogDensityUniform, 0.15);
 	}
 
 	function initModels() {
 		// Generate a forest of pine trees randomly on the XZ plane
 		createForest({
-			count: 80,
-			areaSize: 16.0, // trees distributed within +/- areaSize/2 on X and Z
+			count: 160,
+			areaSize: 22.0, // trees distributed within +/- areaSize/2 on X and Z
 			minSpacing: 1.2, // minimum distance between any two trees
 			excludeRadius: 1.0 // keep a clear radius around the origin
 		});
@@ -283,18 +302,67 @@ var app = (() => {
 			}
 		}
 
-		// Instantiate Pine models at computed positions
+		// Weighted mix configuration (can be extended)
+		const mix = [
+			{ type: 'pine', weight: 0.6 },
+			{ type: 'tree', weight: 0.3 },
+			{ type: 'bush', weight: 0.2 },
+		];
+		const totalWeight = mix.reduce((s, m) => s + m.weight, 0);
+		function pickType() {
+			let r = Math.random() * totalWeight;
+			for (const m of mix) {
+				if ((r -= m.weight) <= 0) return m.type;
+			}
+			return mix[mix.length - 1].type; // fallback
+		}
+
+		function randomColor(base) {
+			// Slight variation around base color
+			return base.map(c => Math.min(1.0, Math.max(0.0, c + (Math.random() - 0.5) * 0.15)));
+		}
+
 		for (const [x, z] of positions) {
-			const pine = new Model(
-				new Pine(),
+			const choice = pickType();
+			let generator;
+			let colorBase;
+			// Randomized transform components
+			let scaleVal;
+			if (choice === 'bush') {
+				scaleVal = 0.6 + Math.random() * 0.4;
+			} else if (choice === 'tree') {
+				scaleVal = 0.8 + Math.random() * 0.9;
+			} else { // pine
+				scaleVal = 0.7 + Math.random() * 0.8;
+			}
+			let rotY = Math.random() * Math.PI * 2; // Y rotation for variation
+
+			if (choice === 'pine') {
+				generator = new Pine();
+				colorBase = [0.20, 0.55, 0.40];
+			} else if (choice === 'tree') {
+				generator = new Tree();
+				colorBase = [0.24, 0.60, 0.32];
+			} else { // bush
+				generator = new Bush({
+					sphereCount: 3 + Math.floor(Math.random() * 2),
+				});
+				colorBase = [0.18, 0.50, 0.28];
+			}
+			const model = new Model(
+				generator,
 				gl, prog,
 				{
 					fillstyle: 'fill',
-					color: [0.2, 0.6, 0.3],
-					transform: { translation: [x, 0, z] }
+					color: randomColor(colorBase),
+					transform: {
+						translation: [x, 0.0, z],
+						rotation: [0, rotY, 0],
+						scale: scaleVal
+					}
 				}
 			);
-			models.push(pine);
+			models.push(model);
 		}
 	}
 
@@ -472,7 +540,14 @@ var app = (() => {
 			// Set uniforms for model.
 			gl.uniformMatrix4fv(prog.mvMatrixUniform, false, mv);
 			gl.uniformMatrix3fv(prog.normalMatrixUniform, false, normalMatrix);
-			gl.uniform3fv(prog.modelColorUniform, model.color || [1.0, 1.0, 1.0]);
+			// If model has per-vertex colors, set flag and skip uniform color
+			const hasVertexColor = !!model.vboColor;
+			if (prog.useVertexColorUniform) {
+				gl.uniform1i(prog.useVertexColorUniform, hasVertexColor ? 1 : 0);
+			}
+			if (!hasVertexColor && prog.modelColorUniform) {
+				gl.uniform3fv(prog.modelColorUniform, model.color || [1.0, 1.0, 1.0]);
+			}
 
 			draw(model);
 		}
@@ -507,6 +582,18 @@ var app = (() => {
 		// Setup normal VBO.
 		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboNormal);
 		gl.vertexAttribPointer(prog.normalAttrib, 3, gl.FLOAT, false, 0, 0);
+
+		// Setup color VBO if present
+		if (model.vboColor && prog.colorAttrib !== undefined && prog.colorAttrib !== -1) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, model.vboColor);
+			gl.vertexAttribPointer(prog.colorAttrib, 3, gl.FLOAT, false, 0, 0);
+			gl.enableVertexAttribArray(prog.colorAttrib);
+		} else {
+			// If no color buffer, disable attribute to be safe
+			if (prog.colorAttrib !== undefined && prog.colorAttrib !== -1) {
+				gl.disableVertexAttribArray(prog.colorAttrib);
+			}
+		}
 
 		// Setup rendering tris.
 		const fill = (model.fillstyle.search(/fill/) != -1);

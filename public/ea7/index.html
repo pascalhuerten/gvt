@@ -39,10 +39,10 @@
     <script src="../util/models/cone.js"></script>
     <script src="../util/models/torus.js"></script>
     <script src="../util/models/pine.js"></script>
+    <script src="../util/models/tree.js"></script>
+    <script src="../util/models/bush.js"></script>
     <script src="../util/models/plane.js"></script>
     <script src="../util/models/Model.js"></script>
-    <!-- pine tree generator -->
-    <script src="../util/models/pine.js"></script>
     <script src="../util/models/ModelAnimator.js"></script>
     <!-- main app -->
     <script src="main.js"></script>
@@ -51,33 +51,51 @@
     <script type="x-shader/x-vertex" id="vertexshader">#version 300 es
 in vec3 aPosition;
 in vec3 aNormal;
+in vec3 aColor; // optional per-vertex color
 
 uniform mat4 uPMatrix;
 uniform mat4 uMVMatrix;
 uniform mat3 uNormalMatrix;
+uniform float uCurveStart;
+uniform float uCurveStrength;
+uniform float uCurveExponent;
 
 out vec3 vNormal;
 out vec3 vPosition;
+out vec3 vColor;
 
 void main(){
 	// compute position in view (model-view) space
 	vec4 mvPos = uMVMatrix * vec4(aPosition, 1.0);
+
+    // Depth-based downward curvature for distant vertices
+    float depthVS = abs(mvPos.z);
+    float tCurve = clamp((depthVS - uCurveStart) / max(0.0001, depthVS + 1.0), 0.0, 1.0);
+    float curveAmt = uCurveStrength * pow(tCurve, uCurveExponent);
+    mvPos.y -= curveAmt;
 	gl_Position = uPMatrix * mvPos;
 	// pass normal and position to fragment shader
 	vNormal = normalize(uNormalMatrix * aNormal);
 	vPosition = mvPos.xyz;
+    vColor = aColor;
 }
 </script>
     <script type="x-shader/x-fragment" id="fragmentshader">#version 300 es
 precision mediump float;
 in vec3 vNormal;
 in vec3 vPosition;
+in vec3 vColor;
 
 uniform vec3 uModelColor;
+uniform bool uUseVertexColor;
 uniform vec3 uLightDirection;
 uniform float uAmbientStrength;
 uniform float uShadowStrength; // 0..1 how strong shadows get
 uniform float uShadowExponent; // controls falloff of shadow
+uniform vec3  uFogColor;           // target color to blend towards
+uniform float uFogNear;            // start fog distance
+uniform float uFogStrength;        // 0..1 overall fog influence
+uniform float uFogDensity;         // exponential fog density
 
 out vec4 fragColor;
 
@@ -93,16 +111,30 @@ void main() {
 	float shadowFactor = pow(1.0 - diffuse, uShadowExponent);
 	float shadow = clamp(uShadowStrength * shadowFactor, 0.0, 1.0);
 
-	// lit color
-	vec3 litColor = uModelColor * lighting;
+	// base color: either per-vertex or uniform
+    vec3 baseColor = uUseVertexColor ? vColor : uModelColor;
+    // lit color
+    vec3 litColor = baseColor * lighting;
 
 	// dark base for shadows (very low ambient in deep shadow)
-	vec3 shadowColor = uModelColor * (uAmbientStrength * 0.25);
+    vec3 shadowColor = baseColor * (uAmbientStrength * 0.25);
 
 	// blend between shadowColor and litColor depending on shadow
-	vec3 color = mix(litColor, shadowColor, shadow);
+    vec3 color = mix(litColor, shadowColor, shadow);
 
-	fragColor = vec4(color, 1.0);
+    // Depth-based desaturation using view-space depth (vPosition.z)
+    float depth = abs(vPosition.z);
+    float d = max(0.0, depth - uFogNear);
+    float desatAmount = uFogStrength * (1.0 - exp(-uFogDensity * d));
+    // Compute luminance (perceived grayscale)
+    float gray = dot(color, vec3(0.299, 0.587, 0.114));
+    vec3 desatColor = mix(color, vec3(gray), desatAmount);
+
+    // Distance fog: brighten/desaturate towards fog color with depth
+    float fogT = (1.0 - exp(-uFogDensity * d)) * uFogStrength;
+    vec3 foggedColor = mix(desatColor, uFogColor, fogT);
+
+    fragColor = vec4(foggedColor, 1.0);
 }
 </script>
 

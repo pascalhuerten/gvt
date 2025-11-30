@@ -64,6 +64,20 @@ class Model {
         prog.normalAttrib = gl.getAttribLocation(prog, 'aNormal');
         gl.enableVertexAttribArray(prog.normalAttrib);
 
+        // Optional color VBO if generator provides per-vertex colors
+        if (this.generator.colors) {
+            this.colors = this.generator.colors;
+            this.vboColor = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vboColor);
+            gl.bufferData(gl.ARRAY_BUFFER, this.colors, gl.STATIC_DRAW);
+            prog.colorAttrib = gl.getAttribLocation(prog, 'aColor');
+            if (prog.colorAttrib !== -1) {
+                gl.enableVertexAttribArray(prog.colorAttrib);
+            }
+        } else {
+            this.vboColor = null;
+        }
+
         // Setup lines IBO
         this.iboLines = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iboLines);
@@ -163,5 +177,11 @@ class Model {
         this.iboTris.numberOfElements = this.indicesTris.length;
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        // Update color VBO if present
+        if (this.vboColor && this.colors) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vboColor);
+            gl.bufferData(gl.ARRAY_BUFFER, this.colors, gl.STATIC_DRAW);
+        }
     }
 }
