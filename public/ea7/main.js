@@ -43,6 +43,14 @@ var app = (() => {
 	// Animation controls
 	let isPlaying = true;
 	let _lastAnimTime = null;
+	// Global render mode: 'fill' or 'wireframefill'
+	let _renderMode = 'fill';
+	function setRenderMode(mode) {
+		_renderMode = (mode === 'wireframefill') ? 'wireframefill' : 'fill';
+		for (const m of models) {
+			m.fillstyle = _renderMode;
+		}
+	}
 
 	function start() {
 		init();
@@ -231,6 +239,7 @@ var app = (() => {
 		prog.skyRadiusUniform = gl.getUniformLocation(prog, "uSkyRadius");
 		prog.skyHazeStrengthUniform = gl.getUniformLocation(prog, "uSkyHazeStrength");
 		prog.skyDesatStrengthUniform = gl.getUniformLocation(prog, "uSkyDesatStrength");
+		prog.wireframePassUniform = gl.getUniformLocation(prog, "uWireframePass");
 	}
 
 	/**
@@ -262,7 +271,7 @@ var app = (() => {
 		// Create skydome first (background). Use large radius.
 		const skyGen = new Skydome({ radius: 60.0, stacks: 24, slices: 64 });
 		const skyModel = new Model(skyGen, gl, prog, {
-			fillstyle: 'wireframefill',
+			fillstyle: 'fill',
 			color: [1, 1, 1], // unused when vertex colors active
 			transform: { translation: [0, 0, 0] }
 		});
@@ -509,6 +518,15 @@ var app = (() => {
 				case ('K'):
 					togglePlayPause();
 					break;
+				case ('1'): // set fill
+					setRenderMode('fill');
+					break;
+				case ('2'): // set wireframe overlay
+					setRenderMode('wireframefill');
+					break;
+				case ('m'): // toggle render mode
+					setRenderMode(_renderMode === 'fill' ? 'wireframefill' : 'fill');
+					break;
 
 			}			// Render the scene again on any key pressed.
 			render();
@@ -703,6 +721,8 @@ var app = (() => {
 		if (fill) {
 			// For sky: disable depth write so scene draws over it
 			if (model.isSky) gl.depthMask(false);
+			// Ensure wireframe override is off for fill pass
+			if (prog.wireframePassUniform) gl.uniform1i(prog.wireframePassUniform, 0);
 			gl.enableVertexAttribArray(prog.normalAttrib);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboTris);
 			gl.drawElements(gl.TRIANGLES, model.iboTris.numberOfElements,
@@ -715,9 +735,12 @@ var app = (() => {
 		if (wireframe) {
 			gl.disableVertexAttribArray(prog.normalAttrib);
 			gl.vertexAttrib3f(prog.normalAttrib, 0, 0, 0);
+			// Force black lines regardless of material
+			if (prog.wireframePassUniform) gl.uniform1i(prog.wireframePassUniform, 1);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.iboLines);
 			gl.drawElements(gl.LINES, model.iboLines.numberOfElements,
 				gl.UNSIGNED_SHORT, 0);
+			if (prog.wireframePassUniform) gl.uniform1i(prog.wireframePassUniform, 0);
 		}
 	}
 

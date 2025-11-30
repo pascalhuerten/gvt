@@ -106,10 +106,16 @@ uniform bool uIsSky;               // sky pass flag
 uniform float uSkyRadius;          // skydome radius
 uniform float uSkyHazeStrength;    // 0..1 how much horizon haze
 uniform float uSkyDesatStrength;   // 0..1 desaturation near horizon
+uniform bool uWireframePass;       // when true, always render black lines
 
 out vec4 fragColor;
 
 void main() {
+    // Force wireframe to solid black, no lighting/fog
+    if (uWireframePass) {
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
     if (uIsSky) {
         // Simple atmospheric gradient: use normalized height in view space
         float h = clamp((vPosition.y + uSkyRadius * 0.2) / (uSkyRadius * 1.2), 0.0, 1.0);
@@ -199,6 +205,9 @@ void main() {
                     <li><strong>p</strong>: Perspektivische Projektion</li>
                     <li><strong>f</strong>: Frustum-Projektion</li>
                     <li><strong>n / N</strong>: Kamera weiter / näher</li>
+                    <li><strong>1</strong>: Render Fill</li>
+                    <li><strong>2</strong>: Render Fill + Wireframe</li>
+                    <li><strong>m</strong>: Render-Modus umschalten</li>
                 </ul>
             </div>
         </section>
