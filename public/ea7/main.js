@@ -19,31 +19,24 @@ var app = (() => {
 	};
 
 	let camera = {
-		// Initial position of the camera.
-		eye: [0, 0, 0],
-		// Point to look at.
-		center: [0, 0.2, 0],
-		// Roll and pitch of the camera.
+		// First-person camera state
+		eye: [0, 0.3, 3], // start slightly above ground and away from center
+		center: [0, 0.3, 2],
 		up: [0, 1, 0],
-		// Opening angle given in radian.
-		// radian = degree*2*PI/360.
 		fovy: 80.0 * Math.PI / 180,
-		// Camera near plane dimensions:
-		// value for left right top bottom in projection.
 		lrtb: 2.0,
-		// View matrix.
 		vMatrix: mat4.create(),
-		// Projection matrix.
 		pMatrix: mat4.create(),
-		// Projection types: ortho, perspective, frustum.
 		projectionType: "perspective",
-		// Angle to Z-Axis for camera when orbiting the center
-		// given in radian.
-		zAngle: Math.PI / 4 + Math.PI,
-		// Angle above the XZ-plane (pitch) in radian. 0 = horizon, positive = above.
-		xAngle: 0.2,
-		// Distance in XZ-Plane from center when orbiting.
-		distance: 1.5,
+		// FPS angles
+		yaw: 0.0,   // left/right rotation around Y
+		pitch: 0.0, // up/down rotation
+		// Movement
+		moveSpeed: 2.0, // units per second
+		turnSpeed: 1.5, // radians per second for arrows
+		// Bounds
+		minPitch: -Math.PI / 2 + 0.05,
+		maxPitch: Math.PI / 2 - 0.05,
 	};
 
 
@@ -74,6 +67,9 @@ var app = (() => {
 			for (const animator of animators) {
 				animator.update(timestamp);
 			}
+
+			// Handle FPS movement when keys are pressed
+			updateFpsCamera(dt);
 		}
 
 		render();
@@ -148,7 +144,7 @@ var app = (() => {
 	 * be in render function.
 	 */
 	function initPipline() {
-		gl.clearColor(.95, .95, .95, 1);
+		gl.clearColor(.75, .85, .95, 1);
 
 		// Backface culling.
 		gl.frontFace(gl.CCW);
@@ -295,7 +291,7 @@ var app = (() => {
 				{
 					fillstyle: 'fill',
 					color: [0.2, 0.6, 0.3],
-					transform: { translation: [x, 0.1, z] }
+					transform: { translation: [x, 0, z] }
 				}
 			);
 			models.push(pine);
@@ -312,6 +308,9 @@ var app = (() => {
 			if (play) play.textContent = isPlaying ? 'Pause ❚❚' : 'Play ▶';
 		}
 	}
+
+	// Track pressed keys for smooth FPS movement
+	const _keys = new Set();
 
 	function initEventHandler() {
 
@@ -334,49 +333,15 @@ var app = (() => {
 					camera.projectionType = "frustum";
 					console.log("frustum");
 					break;
-				case ('c'):
-				case ('ArrowRight'):
-				case ('d'):
-					console.log("right");
-					// user manually rotated -> pause automatic animation
-					// pauseAnimation();
-					camera.zAngle += 0.03;
-					break;
-				case ('C'):
-				case ('ArrowLeft'):
-				case ('a'):
-					console.log("left");
-					// user manually rotated -> pause automatic animation
-					// pauseAnimation();
-					camera.zAngle -= 0.03;
-					break;
-				case ('w'):
-					// look more from above (increase pitch)
-					camera.xAngle += 0.08;
-					// clamp to avoid gimbal flip
-					if (camera.xAngle > Math.PI / 2 - 0.01) camera.xAngle = Math.PI / 2 - 0.01;
-					break;
-				case ('s'):
-					// look more from below (decrease pitch)
-					camera.xAngle -= 0.08;
-					console.log("xAngle:", camera.xAngle);
-					if (camera.xAngle <= 0.05) camera.xAngle = 0.05;
-					break;
-				case ('n'):
-					console.log("away");
-					camera.distance += 0.1;
-					if (camera.projectionType === 'ortho') camera.lrtb += 0.1;
-					break;
-				case ('N'):
-					console.log("closer");
-					camera.distance -= 0.1;
-					if (camera.distance < 1.0)
-						camera.distance = 1.0;
-					if (camera.projectionType === 'ortho') {
-						camera.lrtb -= 0.1;
-						if (camera.lrtb < 0.0) camera.lrtb = 0.0;
-					}
-					break;
+				// FPS movement keys tracked in set
+				case ('w'): _keys.add('w'); break;
+				case ('a'): _keys.add('a'); break;
+				case ('s'): _keys.add('s'); break;
+				case ('d'): _keys.add('d'); break;
+				case ('ArrowLeft'): _keys.add('ArrowLeft'); break;
+				case ('ArrowRight'): _keys.add('ArrowRight'); break;
+				case ('ArrowUp'): _keys.add('ArrowUp'); break;
+				case ('ArrowDown'): _keys.add('ArrowDown'); break;
 				case ('k'):
 					// K: step animation forward one frame (only while paused)
 					pauseAnimation();
@@ -390,6 +355,69 @@ var app = (() => {
 			}			// Render the scene again on any key pressed.
 			render();
 		};
+
+		window.onkeyup = function (evt) {
+			const c = evt.key;
+			switch (c) {
+				case ('w'): _keys.delete('w'); break;
+				case ('a'): _keys.delete('a'); break;
+				case ('s'): _keys.delete('s'); break;
+				case ('d'): _keys.delete('d'); break;
+				case ('ArrowLeft'): _keys.delete('ArrowLeft'); break;
+				case ('ArrowRight'): _keys.delete('ArrowRight'); break;
+				case ('ArrowUp'): _keys.delete('ArrowUp'); break;
+				case ('ArrowDown'): _keys.delete('ArrowDown'); break;
+			}
+		};
+	}
+
+	function updateFpsCamera(dt) {
+		// Update yaw/pitch from arrow keys
+		if (_keys.has('ArrowLeft')) camera.yaw += camera.turnSpeed * dt;
+		if (_keys.has('ArrowRight')) camera.yaw -= camera.turnSpeed * dt;
+		if (_keys.has('ArrowUp')) camera.pitch += camera.turnSpeed * dt;
+		if (_keys.has('ArrowDown')) camera.pitch -= camera.turnSpeed * dt;
+		// Clamp pitch
+		if (camera.pitch > camera.maxPitch) camera.pitch = camera.maxPitch;
+		if (camera.pitch < camera.minPitch) camera.pitch = camera.minPitch;
+
+		// Compute forward and right vectors from yaw/pitch
+		const cosPitch = Math.cos(camera.pitch);
+		const sinPitch = Math.sin(camera.pitch);
+		const cosYaw = Math.cos(camera.yaw);
+		const sinYaw = Math.sin(camera.yaw);
+		const forward = [
+			cosPitch * sinYaw,
+			sinPitch,
+			cosPitch * cosYaw
+		];
+		// Right vector (camera's right on XZ): use cross(forward, up) sign to match A/D
+		const right = [
+			-forward[2],
+			0,
+			forward[0]
+		];
+		// Normalize right
+		const rLen = Math.sqrt(right[0] * right[0] + right[2] * right[2]);
+		if (rLen > 0.0001) { right[0] /= rLen; right[2] /= rLen; }
+
+		// Move with WASD on XZ plane
+		let move = [0, 0, 0];
+		if (_keys.has('w')) { move[0] += forward[0]; move[2] += forward[2]; }
+		if (_keys.has('s')) { move[0] -= forward[0]; move[2] -= forward[2]; }
+		if (_keys.has('a')) { move[0] -= right[0]; move[2] -= right[2]; }
+		if (_keys.has('d')) { move[0] += right[0]; move[2] += right[2]; }
+		// Normalize move
+		const mLen = Math.sqrt(move[0] * move[0] + move[2] * move[2]);
+		if (mLen > 0.0001) { move[0] /= mLen; move[2] /= mLen; }
+		// Apply movement (keep Y at current eye.y)
+		camera.eye[0] += move[0] * camera.moveSpeed * dt;
+		camera.eye[2] += move[2] * camera.moveSpeed * dt;
+
+		// Update center from eye + forward
+		camera.center[0] = camera.eye[0] + forward[0];
+		camera.center[1] = camera.eye[1] + forward[1];
+		camera.center[2] = camera.eye[2] + forward[2];
 	}
 
 	/**
@@ -399,10 +427,8 @@ var app = (() => {
 	 * (angle above XZ-plane). Result is stored in `camera.eye`.
 	 */
 	function calculateCameraOrbit() {
-		const cosX = Math.cos(camera.xAngle);
-		camera.eye[0] = camera.center[0] + camera.distance * cosX * Math.sin(camera.zAngle);
-		camera.eye[1] = camera.center[1] + camera.distance * Math.sin(camera.xAngle);
-		camera.eye[2] = camera.center[2] + camera.distance * cosX * Math.cos(camera.zAngle);
+		// Orbit camera disabled in FPS mode; eye/center updated in updateFpsCamera.
+		// Keeping function for compatibility.
 	}
 
 	/**
