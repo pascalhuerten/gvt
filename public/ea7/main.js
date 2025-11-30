@@ -246,6 +246,7 @@ var app = (() => {
 		prog.skyHazeStrengthUniform = gl.getUniformLocation(prog, "uSkyHazeStrength");
 		prog.skyDesatStrengthUniform = gl.getUniformLocation(prog, "uSkyDesatStrength");
 		prog.wireframePassUniform = gl.getUniformLocation(prog, "uWireframePass");
+		prog.isGroundUniform = gl.getUniformLocation(prog, "uIsGround");
 	}
 
 	/**
@@ -307,6 +308,7 @@ var app = (() => {
 				transform: { translation: [0, 0, 0] }
 			}
 		);
+		floorModel.isGround = true;
 
 		models.push(floorModel);
 
@@ -737,6 +739,8 @@ var app = (() => {
 			if (model.isSky && prog.skyRadiusUniform && model.generator && model.generator.radius) {
 				gl.uniform1f(prog.skyRadiusUniform, model.generator.radius);
 			}
+			// Ground flag for special near-camera darkening
+			if (prog.isGroundUniform) gl.uniform1i(prog.isGroundUniform, model.isGround ? 1 : 0);
 
 			// Per-model lighting override (e.g., softer for clouds)
 			const amb = (model.lighting && model.lighting.ambient !== undefined) ? model.lighting.ambient : prog._defaultAmbient;

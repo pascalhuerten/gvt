@@ -130,6 +130,7 @@ uniform float uSkyRadius;          // skydome radius
 uniform float uSkyHazeStrength;    // 0..1 how much horizon haze
 uniform float uSkyDesatStrength;   // 0..1 desaturation near horizon
 uniform bool uWireframePass;       // when true, always render black lines
+uniform bool uIsGround;            // flag for ground plane special treatment
 
 out vec4 fragColor;
 
@@ -181,10 +182,20 @@ void main() {
     // Compute luminance (perceived grayscale)
     float gray = dot(color, vec3(0.299, 0.587, 0.114));
     vec3 desatColor = mix(color, vec3(gray), desatAmount);
+    
+    // Near-camera saturation boost for more vivid foreground
+    float nearBoost = exp(-depth * 0.5); // Strong at camera, fades with distance
+    vec3 saturatedColor = mix(desatColor, desatColor * 1.0 / max(0.001, (gray / max(0.001, dot(desatColor, vec3(0.299, 0.587, 0.114))))), nearBoost * 0.3);
+    
+    // Ground plane darkening for nearby areas to add visual texture
+    if (uIsGround) {
+        float groundDarken = exp(-depth * 0.8) * 0.25; // Darken close ground
+        saturatedColor *= (1.0 - groundDarken);
+    }
 
     // Distance fog: brighten/desaturate towards fog color with depth
     float fogT = (1.0 - exp(-uFogDensity * d)) * uFogStrength;
-    vec3 foggedColor = mix(desatColor, uFogColor, fogT);
+    vec3 foggedColor = mix(saturatedColor, uFogColor, fogT);
 
     fragColor = vec4(foggedColor, 1.0);
 }
