@@ -221,6 +221,11 @@ var app = (() => {
 		prog.curveStrengthUniform = gl.getUniformLocation(prog, "uCurveStrength");
 		prog.curveExponentUniform = gl.getUniformLocation(prog, "uCurveExponent");
 		prog.curveRadiusUniform = gl.getUniformLocation(prog, "uCurveRadius");
+		// Wind animation uniforms
+		prog.windTimeUniform = gl.getUniformLocation(prog, "uWindTime");
+		prog.windStrengthUniform = gl.getUniformLocation(prog, "uWindStrength");
+		prog.windDirectionUniform = gl.getUniformLocation(prog, "uWindDirection");
+		prog.windModelStrengthUniform = gl.getUniformLocation(prog, "uWindModelStrength");
 
 		// Model color and lighting.
 		prog.modelColorUniform = gl.getUniformLocation(prog, "uModelColor");
@@ -268,6 +273,10 @@ var app = (() => {
 		// Sky effect defaults
 		if (prog.skyHazeStrengthUniform) gl.uniform1f(prog.skyHazeStrengthUniform, 0.35);
 		if (prog.skyDesatStrengthUniform) gl.uniform1f(prog.skyDesatStrengthUniform, 0.12);
+		// Wind defaults
+		if (prog.windStrengthUniform) gl.uniform1f(prog.windStrengthUniform, 3.0);
+		if (prog.windDirectionUniform) gl.uniform2f(prog.windDirectionUniform, 1.0, 0.5);
+		if (prog.windModelStrengthUniform) gl.uniform1f(prog.windModelStrengthUniform, 0.0);
 	}
 
 	function initModels() {
@@ -301,6 +310,13 @@ var app = (() => {
 
 		models.push(floorModel);
 
+		// Sprinkle grass blades across ground before other elements for base layer
+		createGrass({
+			count: 200,
+			areaSize: 12.0,
+			minSpacing: 0.3
+		});
+
 		// Create a few slow-moving clouds
 		createClouds({
 			count: 10,
@@ -308,6 +324,52 @@ var app = (() => {
 			baseY: 4.5,
 			minSpacing: 1.0
 		});
+	}
+
+	/**
+	 * Create grass patches (each patch contains multiple blades in one VBO for performance).
+	 */
+	function createGrass({ count = 300, areaSize = 20.0, minSpacing = 0.3 } = {}) {
+		const half = areaSize * 0.5;
+		const positions = [];
+		const maxAttempts = 50;
+		function isValid(x, z) {
+			for (const p of positions) {
+				const dx = x - p[0]; const dz = z - p[1];
+				if (dx * dx + dz * dz < minSpacing * minSpacing) return false;
+			}
+			return true;
+		}
+		for (let i = 0; i < count; i++) {
+			let placed = false;
+			for (let a = 0; a < maxAttempts && !placed; a++) {
+				const x = (Math.random() * 2 - 1) * half;
+				const z = (Math.random() * 2 - 1) * half;
+				if (!isValid(x, z)) continue;
+				positions.push([x, z]);
+				placed = true;
+			}
+		}
+		for (const [x, z] of positions) {
+			// Create patch with multiple blades (12-20 blades per patch)
+			const bladesPerPatch = 20 + Math.floor(Math.random() * 20);
+			const generator = new GrassPatch({
+				bladeCount: bladesPerPatch,
+				minHeight: 0.04,
+				maxHeight: 0.18,
+				minWidth: 0.02,
+				maxWidth: 0.03,
+				patchSize: 0.6
+			});
+			const patch = new Model(generator, gl, prog, {
+				fillstyle: 'fill',
+				color: [0.40, 0.60, 0.32], // fallback, uses vertex colors
+				transform: { translation: [x, 0, z], scale: 1.0 }
+			});
+			patch.windStrength = 1.0; // Full wind effect for grass
+			patch.doubleSided = true; // Disable backface culling for grass
+			models.push(patch);
+		}
 	}
 
 	/**
@@ -403,6 +465,12 @@ var app = (() => {
 					}
 				}
 			);
+			// Trees and bushes sway slightly in wind
+			if (choice === 'tree' || choice === 'pine') {
+				model.windStrength = 0.01; // Very subtle sway for trees (reduced for quadratic wind)
+			} else if (choice === 'bush') {
+				model.windStrength = 0.03; // Bushes sway a bit more (reduced for quadratic wind)
+			}
 			models.push(model);
 		}
 	}
@@ -624,6 +692,11 @@ var app = (() => {
 		// build view matrix
 		mat4.lookAt(camera.vMatrix, camera.eye, camera.center, camera.up);
 
+		// Update wind animation time
+		if (prog.windTimeUniform) {
+			gl.uniform1f(prog.windTimeUniform, performance.now() * 0.001);
+		}
+
 		// Transform world-space light direction into view space so lighting
 		// remains fixed relative to the scene (not the camera).
 		if (prog.lightDirectionUniform) {
@@ -673,6 +746,10 @@ var app = (() => {
 			gl.uniform1f(prog.shadowStrengthUniform, sh);
 			gl.uniform1f(prog.shadowExpUniform, shExp);
 
+			// Set per-model wind strength (0 for non-vegetation)
+			const windStr = model.windStrength !== undefined ? model.windStrength : 0.0;
+			if (prog.windModelStrengthUniform) gl.uniform1f(prog.windModelStrengthUniform, windStr);
+
 			draw(model);
 		}
 	}
@@ -699,6 +776,11 @@ var app = (() => {
 	}
 
 	function draw(model) {
+		// Disable backface culling for double-sided models (grass)
+		if (model.doubleSided) {
+			gl.disable(gl.CULL_FACE);
+		}
+
 		// Setup position VBO.
 		gl.bindBuffer(gl.ARRAY_BUFFER, model.vboPos);
 		gl.vertexAttribPointer(prog.positionAttrib, 3, gl.FLOAT, false, 0, 0);
@@ -744,6 +826,11 @@ var app = (() => {
 			gl.drawElements(gl.LINES, model.iboLines.numberOfElements,
 				gl.UNSIGNED_SHORT, 0);
 			if (prog.wireframePassUniform) gl.uniform1i(prog.wireframePassUniform, 0);
+		}
+
+		// Re-enable backface culling if it was disabled
+		if (model.doubleSided) {
+			gl.enable(gl.CULL_FACE);
 		}
 	}
 

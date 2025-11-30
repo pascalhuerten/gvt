@@ -43,6 +43,7 @@
     <script src="../util/models/bush.js"></script>
     <script src="../util/models/cloud.js"></script>
     <script src="../util/models/skydome.js"></script>
+    <script src="../util/models/grass.js"></script>
     <script src="../util/models/plane.js"></script>
     <script src="../util/models/Model.js"></script>
     <script src="../util/models/ModelAnimator.js"></script>
@@ -64,14 +65,29 @@ uniform float uCurveExponent;
 uniform float uCurveRadius; // Earth-like curvature radius (same units as scene)
 uniform bool uIsSky; // sky pass flag
 uniform float uSkyRadius; // for gradient calculation if needed
+uniform float uWindTime; // time for wind animation
+uniform float uWindStrength; // wind sway strength
+uniform vec2 uWindDirection; // wind direction XZ
+uniform float uWindModelStrength; // per-model wind multiplier
 
 out vec3 vNormal;
 out vec3 vPosition;
 out vec3 vColor;
 
 void main(){
+	// Apply wind sway in local space before view transform
+	vec3 pos = aPosition;
+	// Sway amount increases quadratically with vertex height (Y coordinate)
+	// This makes grass bend naturally with tops moving much more than base
+	float heightFactor = pos.y * pos.y; // Quadratic for natural bending
+	float swayAmount = heightFactor * uWindStrength * uWindModelStrength;
+	float wave = sin(uWindTime * 1.5 + pos.x * 0.5 + pos.z * 0.5) * 0.5 + 
+	             sin(uWindTime * 2.3 + pos.x * 0.3) * 0.3;
+	pos.x += uWindDirection.x * wave * swayAmount;
+	pos.z += uWindDirection.y * wave * swayAmount;
+	
 	// compute position in view (model-view) space
-	vec4 mvPos = uMVMatrix * vec4(aPosition, 1.0);
+	vec4 mvPos = uMVMatrix * vec4(pos, 1.0);
 
     // Earth-like curvature: quadratic sagitta drop based on horizontal distance
     // Use view-space horizontal distance (XZ) and a sphere radius.
