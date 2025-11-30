@@ -218,29 +218,14 @@ void main() {
                 <canvas id="canvas" width="700" height="700"
                     style="border: 1px solid #ccc; border-radius: 4px; max-width:100%; height:auto;"></canvas>
             </div>
-            <div id="control-widget"
-                style="text-align:left; margin-bottom: 10px; background:#fff; border:1px solid #e6e6e6; padding:10px; border-radius:6px; display:flex;align-items:center;gap:12px;">
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <button id="play-pause" aria-label="Play Pause Rotation"
-                        style="font-size:14px;padding:6px 10px;">Play ▶</button>
-                </div>
-            </div>
             <div id="key-help"
                 style="text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <strong>Tastatur-Steuerung</strong>
                 </div>
                 <ul style="margin:8px 0 0 16px;padding:0;color:#333;line-height:1.4;">
-                    <li><strong>k</strong>: Animation 1-Schritt fortsetzen</li>
-                    <li><strong>K</strong>: Animation pausieren/fortsetzen</li>
-                    <li><strong>← / a , → / d</strong>: Kamera um Szene drehen</li>
-                    <li><strong>w / s</strong>: Kameraneigung (Pitch) ändern</li>
-                    <li><strong>o</strong>: Orthografische Projektion</li>
-                    <li><strong>p</strong>: Perspektivische Projektion</li>
-                    <li><strong>f</strong>: Frustum-Projektion</li>
-                    <li><strong>n / N</strong>: Kamera weiter / näher</li>
-                    <li><strong>1</strong>: Render Fill</li>
-                    <li><strong>2</strong>: Render Fill + Wireframe</li>
+                    <li><strong>w, a, s, d</strong>: Gehen</li>
+                    <li><strong>←, →, ↑, ↓</strong>: Kameradrehung</li>
                     <li><strong>m</strong>: Render-Modus umschalten</li>
                 </ul>
             </div>
@@ -248,6 +233,80 @@ void main() {
 
         <section id="doc">
             <h2>Dokumentation</h2>
+
+            <h3>Tiefenwirkung durch Z-Buffer und Shader-Effekte</h3>
+
+            <p>In dieser Szene wird eine realistische Tiefenwirkung durch verschiedene, vom Z-Buffer gesteuerte Effekte
+                erzielt:</p>
+
+            <div class="shape-section">
+                <h4>1. Exponentieller Nebel-Effekt</h4>
+                <p>
+                    Entfernte Fragmente werden mittels exponentieller Nebel-Funktion in Richtung der Himmelsfarbe
+                    aufgehellt und entsättigt.
+                    Die Intensität des Effekts basiert auf der View-Space-Tiefe (Z-Koordinate) jedes Fragments:
+                </p>
+                <div class="math-formula">
+                    fogFactor = (1 - exp(-fogDensity × depth)) × fogStrength<br>
+                    finalColor = mix(color, fogColor, fogFactor)
+                </div>
+                <p>
+                    Dies simuliert atmosphärische Streuung und vermittelt ein Gefühl für große Distanzen.
+                </p>
+            </div>
+
+            <div class="shape-section">
+                <h4>2. Farbintensität im Vordergrund</h4>
+                <p>
+                    Objekte in Kameranähe erhalten eine erhöhte Farbsättigung (bis zu 30% mehr), die exponentiell mit
+                    der Entfernung abnimmt.
+                    Dies macht den Vordergrund lebendiger und "greifbarer":
+                </p>
+                <div class="math-formula">
+                    nearBoost = exp(-depth × 0.5)<br>
+                    saturatedColor = mix(desaturated, fullysaturated, nearBoost × 0.3)
+                </div>
+                <p>
+                    Zusätzlich wird der Boden in unmittelbarer Nähe leicht abgedunkelt (bis zu 25%), um visuelle Textur
+                    und räumliche Tiefe zu erzeugen.
+                </p>
+            </div>
+
+            <div class="shape-section">
+                <h4>3. Erdkrümmungs-Simulation</h4>
+                <p>
+                    Im Vertex-Shader werden entfernte Vertices nach unten verschoben, um stilisiert die Krümmung der
+                    Erde nachzuahmen.
+                    Die Verschiebung basiert auf der Sagitta-Formel für eine Kugeloberfläche:
+                </p>
+                <div class="math-formula">
+                    d = horizontale Distanz (XZ-Ebene)<br>
+                    drop = R - sqrt(R² - d²)<br>
+                    vertexY -= drop × strength × smoothstep(start, start×2, d)
+                </div>
+                <p>
+                    Der Effekt setzt ab einer konfigurierbaren Startdistanz ein und verstärkt sich quadratisch mit
+                    zunehmender Entfernung.
+                    Dies erzeugt einen subtilen, aber wahrnehmbaren "Horizont-Effekt", der die Szene größer und weiter
+                    wirken lässt.
+                </p>
+            </div>
+
+            <div class="shape-section">
+                <h4>4. Skybox-Atmosphäre</h4>
+                <p>
+                    Die Skybox erhält im Vertex- und Fragment-Shader einen helleren Farbton zum Horizont hin.
+                    Ein höhenbasierter Verlauf (<em>vPosition.y</em> relativ zum Sky-Radius) mischt die Vertexfarbe mit
+                    der Nebelfarbe
+                    und sorgt für atmosphärische Effekte (Haze und leichte Desättigung) nahe des Horizonts.
+                    Dadurch entsteht ein natürlicher Übergang zum Nebeleffekt im fernen Bodenbereich.
+                </p>
+                <div class="math-formula">
+                    h = clamp((y + 0.2·R) / (1.2·R), 0, 1)<br>
+                    haze = skyHazeStrength · smoothstep(0, 0.35, 1 - h)<br>
+                    finalSkyColor = mix(vertexColor, fogColor, haze)
+                </div>
+            </div>
 
         </section>
     </main>
