@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>EA 7 | Z-Buffer Visualisierung | Pascal Hürten</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../ea2/style.css">
+    <style>
+        .math-formula {
+            background: #f5f5f5;
+            padding: 12px;
+            margin: 10px 0;
+            border-left: 4px solid #0066cc;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .shape-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .shape-section h4 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+    </style>
+
+    <!-- libraries & geometry generators -->
+    <script src="../util/ext/gl-matrix.js"></script>
+    <script src="../util/models/VertexDataGenerator.js"></script>
+    <script src="../util/models/sphere.js"></script>
+    <script src="../util/models/cube.js"></script>
+    <script src="../util/models/cone.js"></script>
+    <script src="../util/models/torus.js"></script>
+    <script src="../util/models/pine.js"></script>
+    <script src="../util/models/tree.js"></script>
+    <script src="../util/models/bush.js"></script>
+    <script src="../util/models/cloud.js"></script>
+    <script src="../util/models/skydome.js"></script>
+    <script src="../util/models/grass.js"></script>
+    <script src="../util/models/plane.js"></script>
+    <script src="../util/models/Model.js"></script>
+    <script src="../util/models/ModelAnimator.js"></script>
+    <!-- main app -->
+    <script src="main.js"></script>
+
+    <!-- Shaders (app reads these by id at init) -->
+    <script type="x-shader/x-vertex" id="vertexshader">#version 300 es
+in vec3 aPosition;
+in vec3 aNormal;
+in vec3 aColor; // optional per-vertex color
+
+uniform mat4 uPMatrix;
+uniform mat4 uMVMatrix;
+uniform mat3 uNormalMatrix;
+uniform float uCurveStart;
+uniform float uCurveStrength;
+uniform float uCurveExponent;
+uniform float uCurveRadius; // Earth-like curvature radius (same units as scene)
+uniform bool uIsSky; // sky pass flag
+uniform float uWindTime; // time for wind animation
+uniform float uWindStrength; // wind sway strength
+uniform vec2 uWindDirection; // wind direction XZ
+uniform float uWindModelStrength; // per-model wind multiplier
+
+out vec3 vNormal;
+out vec3 vColor;
+
+void main(){
+    // Apply wind sway in local space before view transform
+    vec3 pos = aPosition;
+    // Sway amount increases quadratically with vertex height (Y coordinate)
+    float heightFactor = pos.y * pos.y; // Quadratic for natural bending
+    float swayAmount = heightFactor * uWindStrength * uWindModelStrength;
+    float wave = sin(uWindTime * 1.5 + pos.x * 0.5 + pos.z * 0.5) * 0.5 + 
+                 sin(uWindTime * 2.3 + pos.x * 0.3) * 0.3;
+    pos.x += uWindDirection.x * wave * swayAmount;
+    pos.z += uWindDirection.y * wave * swayAmount;
+    
+    // compute position in view (model-view) space
+    vec4 mvPos = uMVMatrix * vec4(pos, 1.0);
+
+    // Earth-like curvature: quadratic sagitta drop based on horizontal distance
+    if (!uIsSky) {
+        float d = length(mvPos.xz);
+        float tCurve = smoothstep(uCurveStart, uCurveStart * 2.0, d);
+        tCurve = pow(tCurve, max(0.0001, uCurveExponent));
+        float R = max(0.0001, uCurveRadius);
+        float inside = max(0.0, R * R - d * d);
+        float drop = (R - sqrt(inside));
+        mvPos.y -= drop * uCurveStrength * tCurve;
+    }
+    gl_Position = uPMatrix * mvPos;
+    // pass normal and color only; we'll use gl_FragCoord in fragment shader
+    vNormal = normalize(uNormalMatrix * aNormal);
+    vColor = aColor;
+}
+</script>
+    <script type="x-shader/x-fragment" id="fragmentshader">#version 300 es
+precision mediump float;
+in vec3 vNormal;
+in vec3 vColor;
+
+uniform vec3 uModelColor;
+uniform bool uUseVertexColor;
+uniform vec3 uLightDirection;
+uniform float uAmbientStrength;
+uniform float uShadowStrength; // 0..1 how strong shadows get
+uniform float uShadowExponent; // controls falloff of shadow
+uniform vec3  uFogColor;           // target color to blend towards
+uniform float uFogNear;            // start fog distance
+uniform float uFogStrength;        // 0..1 overall fog influence
+uniform float uFogDensity;         // exponential fog density
+uniform bool uIsSky;               // sky pass flag
+uniform float uSkyRadius;          // skydome radius (kept for compatibility)
+uniform float uSkyHazeStrength;    // 0..1 how much horizon haze
+uniform float uSkyDesatStrength;   // 0..1 desaturation near horizon
+uniform bool uWireframePass;       // when true, always render black lines
+uniform bool uIsGround;            // flag for ground plane special treatment
+uniform vec2 uViewportSize;        // viewport (width, height) in pixels
+uniform float uNear;
+uniform float uFar;
+uniform vec2 uDepthRange; // start/end depth in world units for mapping brightness
+
+out vec4 fragColor;
+
+void main() {
+    // Force wireframe to solid black, no lighting/fog
+    if (uWireframePass) {
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
+    // Use gl_FragCoord for depth and vertical position instead of passing view-space position
+    float screenY = clamp(gl_FragCoord.y / max(1.0, uViewportSize.y), 0.0, 1.0);
+    float depth = gl_FragCoord.z * 1.0; // approximate view-space depth (scale to taste)
+
+    if (uIsSky) {
+        // Atmospheric gradient based on screen Y (top=1, bottom=0)
+        float h = screenY;
+        float haze = uSkyHazeStrength * smoothstep(0.0, 0.35, 1.0 - h);
+        vec3 hazeColor = mix(vColor, uFogColor, haze);
+        float desat = uSkyDesatStrength * (1.0 - h);
+        float gray = dot(hazeColor, vec3(0.299,0.587,0.114));
+        vec3 finalCol = mix(hazeColor, vec3(gray), desat);
+        // force grayscale
+        float lum = dot(finalCol, vec3(0.299,0.587,0.114));
+        fragColor = vec4(vec3(lum), 0.90);
+        return;
+    }
+
+    vec3 N = normalize(vNormal);
+    vec3 L = normalize(uLightDirection);
+    float diffuse = max(dot(N, -L), 0.0);
+
+    // basic lighting (ambient + diffuse)
+    float lighting = uAmbientStrength + diffuse * (1.0 - uAmbientStrength);
+
+    // shadow factor: stronger when diffuse is small
+    float shadowFactor = pow(1.0 - diffuse, uShadowExponent);
+    float shadow = clamp(uShadowStrength * shadowFactor, 0.0, 1.0);
+
+    // base color: either per-vertex or uniform
+    vec3 baseColor = uUseVertexColor ? vColor : uModelColor;
+    vec3 litColor = baseColor * lighting;
+    vec3 shadowColor = baseColor * (uAmbientStrength * 0.25);
+    vec3 color = mix(litColor, shadowColor, shadow);
+
+    // Depth-based desaturation using gl_FragCoord.z
+    float d = max(0.0, depth - uFogNear);
+    float desatAmount = uFogStrength * (1.0 - exp(-uFogDensity * d));
+    float gray = dot(color, vec3(0.299, 0.587, 0.114));
+    vec3 desatColor = mix(color, vec3(gray), desatAmount);
+
+    // Near-camera saturation boost
+    float nearBoost = exp(-depth * 0.5);
+    vec3 saturatedColor = mix(desatColor, desatColor * 1.0 / max(0.001, (gray / max(0.001, dot(desatColor, vec3(0.299, 0.587, 0.114))))), nearBoost * 0.3);
+
+    if (uIsGround) {
+        float groundDarken = exp(-depth * 0.8) * 0.25;
+        saturatedColor *= (1.0 - groundDarken);
+    }
+
+    float fogT = (1.0 - exp(-uFogDensity * d)) * uFogStrength;
+    vec3 foggedColor = mix(saturatedColor, uFogColor, fogT);
+
+    // Reconstruct linear view-space depth from non-linear depth buffer value
+    float z_ndc = gl_FragCoord.z * 2.0 - 1.0; // NDC depth
+    float linearDepth = (2.0 * uNear * uFar) / max(0.00001, (uFar + uNear - z_ndc * (uFar - uNear)));
+
+    // Map linearDepth into normalized [0,1] over a configurable range so the
+    // brightness effect continues farther into the distance.
+    float depthStart = uDepthRange.x;
+    float depthEnd = uDepthRange.y;
+    float normalized = clamp((linearDepth - depthStart) / max(0.0001, depthEnd - depthStart), 0.0, 1.0);
+
+    // Apply a slight gamma to control ramp shape and then map to brightness range
+    float zMapped = pow(normalized, 0.70);
+    float brightness = mix(-0.25, 0.90, zMapped);
+
+    // Add brightness to luminance to ensure far pixels brighten even if color channels are near 1
+    float lum = dot(foggedColor, vec3(0.299, 0.587, 0.114));
+    lum = clamp(lum + brightness, 0.0, 0.96);
+    fragColor = vec4(vec3(lum), 1.0);
+}
+</script>
+
+</head>
+
+<body onload="app.start()">
+    <main>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="../index.html">← Zurück zur Übersicht</a>
+        </nav>
+
+        <h1>EA7 - Z-Buffer Visualisierung - Pascal Hürten</h1>
+
+        <section id="viewer" aria-labelledby="viewer-heading">
+            <h2 id="viewer-heading">Tiefe</h2>
+            <div
+                style="background:#fff8e1;border-left:4px solid #ffb300;padding:8px 12px;margin:8px 0;border-radius:4px;color:#333;">
+                <strong>Hinweis — Gefixte Version:</strong>
+                <div style="margin-top:6px;">
+                    Diese Version benutzt nun <code>gl_FragCoord.z</code> für Tiefenberechnungen, rendert die Szene
+                    in Graustufen und bewegt die Kamera bei <code>w</code>/<code>s</code> nur noch in der X/Y-Ebene.
+                </div>
+            </div>
+
+            <div id="canvas-wrap" style="text-align: center; margin: 20px auto;">
+                <canvas id="canvas" width="700" height="700"
+                    style="border: 1px solid #ccc; border-radius: 4px; max-width:100%; height:auto;"></canvas>
+            </div>
+            <div id="key-help"
+                style="text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <strong>Tastatur-Steuerung</strong>
+                </div>
+                <ul style="margin:8px 0 0 16px;padding:0;color:#333;line-height:1.4;">
+                    <li><strong>w, a, s, d</strong>: Gehen</li>
+                    <li><strong>←, →, ↑, ↓</strong>: Kameradrehung</li>
+                    <li><strong>m</strong>: Render-Modus umschalten</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="doc">
+            <h2>Dokumentation</h2>
+
+            <h3>Technische Details der Tiefen- und Darstellungs-Anpassungen</h3>
+
+            <p>Diese Version verwendet Bildschirm-Tiefenwerte und zusätzliche Shader-Logik, um eine kontrollierbare
+                Tiefenwirkung zu erzeugen und gleichzeitig die Szene in Graustufen darzustellen.</p>
+
+            <div class="shape-section">
+                <h4>1. Tiefen-Rekonstruktion (gl_FragCoord)</h4>
+                <p>
+                    Der Fragment-Shader liest die Tiefeninformation aus <code>gl_FragCoord.z</code> und rekonstruiert
+                    daraus die lineare View-Space-Tiefe mit den Uniforms <code>uNear</code> und <code>uFar</code>.
+                    Diese lineare Tiefe wird anschließend über den konfigurierbaren Bereich <code>uDepthRange</code>
+                    normalisiert, gamma-korrigiert und zur Steuerung der Aufhellung in der Ferne verwendet.
+                </p>
+                <div class="math-formula">
+                    z_ndc = gl_FragCoord.z × 2 - 1<br>
+                    linearDepth = (2·near·far) / (far + near - z_ndc·(far - near))
+                </div>
+            </div>
+
+            <div class="shape-section">
+                <h4>2. Nebel & Desättigung</h4>
+                <p>
+                    Ein exponentieller Nebel-Effekt (Parameter: <code>uFogDensity</code>, <code>uFogStrength</code>)
+                    desättigt entfernte Fragmente und mischt sie zur Nebelfarbe (<code>uFogColor</code>).
+                    Dies basiert auf der rekonstruierten linearen Tiefe und ist so konzipiert, dass der Übergang
+                    über größere Distanzen weich und kontrollierbar bleibt.
+                </p>
+            </div>
+
+            <div class="shape-section">
+                <h4>3. Graustufen-Ausgabe und Helligkeits-Mapping</h4>
+                <p>
+                    Das finale Farbresultat wird in eine Luminanz (Graustufen) konvertiert. Zusätzlich wird eine
+                    Entfernungs-basierte Helligkeitskomponente hinzugefügt, die über <code>uDepthRange</code> und eine
+                    leichte Gamma-Kurve gesteuert wird. Dadurch werden entfernte Bereiche gezielt aufgehellt, ohne dass
+                    nahe Objekte sofort in Sättigung laufen.
+                </p>
+            </div>
+
+            <div class="shape-section">
+                <h4>4. Vordergrund-Sättigung & Bodendunkelung</h4>
+                <p>
+                    Ein <em>nearBoost</em> erhöht die lokale Farbsättigung nahe der Kamera leicht (konfigurierbar),
+                    während der Boden in Kameranähe zusätzlich abgedunkelt wird, um Tiefe und Textur zu betonen.
+                </p>
+            </div>
+
+            <div class="shape-section">
+                <h4>5. Skybox-Atmosphäre</h4>
+                <p>
+                    Die Skybox erhält im Vertex- und Fragment-Shader einen helleren Farbton zum Horizont hin.
+                    Ein höhenbasierter Verlauf (<em>vPosition.y</em> relativ zum Sky-Radius) mischt die Vertexfarbe mit
+                    der Nebelfarbe
+                    und sorgt für atmosphärische Effekte (Haze und leichte Desättigung) nahe des Horizonts.
+                    Dadurch entsteht ein natürlicher Übergang zum Nebeleffekt im fernen Bodenbereich.
+                </p>
+                <div class="math-formula">
+                    h = clamp((y + 0.2·R) / (1.2·R), 0, 1)<br>
+                    haze = skyHazeStrength · smoothstep(0, 0.35, 1 - h)<br>
+                    finalSkyColor = mix(vertexColor, fogColor, haze)
+                </div>
+            </div>
+
+        </section>
+    </main>
+</body>
+
+</html>
