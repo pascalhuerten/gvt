@@ -23,6 +23,7 @@ class Model {
         this.generator = geometryGenerator;
         this.fillstyle = options.fillstyle ?? 'fillwireframe';
         this.color = options.color ?? [1.0, 1.0, 1.0];
+        this.material = options.material ?? null;
         this.mvMatrix = mat4.create();
 
         // Generate vertex data
