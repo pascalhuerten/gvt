@@ -40,11 +40,12 @@ var app = (() => {
 		// Angle above the XZ-plane (pitch) in radian. 0 = horizon, positive = above.
 		xAngle: 0.4,
 		// Distance in XZ-Plane from center when orbiting.
-		distance: 2.5,
+		distance: 3,
 	};
 
 	// Animation controls
-	let isPlaying = true; // whether auto-rotation is active (start playing by default)
+	let isPlaying = false; // whether auto-rotation is active (start playing by default)
+	let isLightsPlaying = true; // whether light animation is active (start playing by default)
 	const playSpeed = 0.3; // radians per second (rotation speed)
 	let _lastAnimTime = null;
 
@@ -53,8 +54,26 @@ var app = (() => {
 	const illumination = {
 		ambientLight: [.5, .5, .5],
 		light: [
-			{ isOn: true, position: [3., 1., 3.], color: [1., 1., 1.] },
-			{ isOn: true, position: [-3., 1., -3.], color: [1., 1., 1.] },
+			{
+				isOn: true,
+				position: [3., 1., 3.],
+				color: [1., 1., 1.],
+				// Orbit properties for animation
+				distance: 3.5,
+				height: 0.5,
+				zAngle: 0.0,
+				speed: 2.5  // radians per second
+			},
+			{
+				isOn: true,
+				position: [-3., 1., -3.],
+				color: [1., 1., 1.],
+				// Orbit properties for animation
+				distance: 4.0,
+				height: 2.5,
+				zAngle: Math.PI,  // Start opposite to first light
+				speed: -1  // Different speed
+			},
 		]
 	};
 
@@ -77,6 +96,10 @@ var app = (() => {
 			// rotate clockwise by increasing zAngle
 			camera.zAngle += playSpeed * dt;
 		}
+		// Update light positions
+		if (isLightsPlaying) {
+			updateLights(dt);
+		}
 		render();
 		requestAnimationFrame(animate);
 	}
@@ -95,6 +118,56 @@ var app = (() => {
 			const btn = document.getElementById('play-pause');
 			if (btn) btn.textContent = 'Play ▶';
 		}
+	}
+
+	function toggleLightPlayPause() {
+		isLightsPlaying = !isLightsPlaying;
+		if (typeof document !== 'undefined') {
+			const btn = document.getElementById('light-play-pause');
+			if (btn) btn.textContent = isLightsPlaying ? 'Pause ❚❚' : 'Play ▶';
+		}
+	}
+
+	/**
+	 * Update light positions based on their orbit properties.
+	 * Each light orbits independently around the scene center.
+	 */
+	function updateLights(dt) {
+		for (let i = 0; i < illumination.light.length; i++) {
+			const light = illumination.light[i];
+			// Update angle based on speed and delta time
+			light.zAngle += light.speed * dt;
+			// Calculate new position in XZ plane, with height offset
+			light.position[0] = light.distance * Math.sin(light.zAngle);
+			light.position[1] = light.height;
+			light.position[2] = light.distance * Math.cos(light.zAngle);
+		}
+	}
+
+	/**
+	 * Manually step light animation by a fixed amount.
+	 * Pauses the animation and advances lights by the step amount.
+	 */
+	function stepLightsForward(stepTime = .1) {
+		// Pause the lights animation
+		if (isLightsPlaying) {
+			isLightsPlaying = false;
+			if (typeof document !== 'undefined') {
+				const btn = document.getElementById('light-play-pause');
+				if (btn) btn.textContent = 'Play ▶';
+			}
+		}
+		if (isPlaying) {
+			isPlaying = false;
+			if (typeof document !== 'undefined') {
+				const btn = document.getElementById('play-pause');
+				if (btn) btn.textContent = 'Play ▶';
+			}
+		}
+		// Update lights by the step amount
+		updateLights(stepTime);
+		// Re-render to show the new light positions
+		render();
 	}
 
 	function init() {
@@ -297,9 +370,15 @@ var app = (() => {
 		// Wire up buttons if present
 		if (typeof document !== 'undefined') {
 			const play = document.getElementById('play-pause');
-			if (play) play.addEventListener('click', () => togglePlayPause());
-			// Set initial label according to play state
-			if (play) play.textContent = isPlaying ? 'Pause ❚❚' : 'Play ▶';
+			if (play) {
+				play.addEventListener('click', () => togglePlayPause());
+				play.textContent = isPlaying ? 'Pause ❚❚' : 'Play ▶';
+			}
+			const lightPlay = document.getElementById('light-play-pause');
+			if (lightPlay) {
+				lightPlay.addEventListener('click', () => toggleLightPlayPause());
+				lightPlay.textContent = isLightsPlaying ? 'Pause ❚❚' : 'Play ▶';
+			}
 		}
 	}
 
@@ -367,7 +446,16 @@ var app = (() => {
 						if (camera.lrtb < 0.0) camera.lrtb = 0.0;
 					}
 					break;
-
+				case ('k'):
+				case ('K'):
+					console.log("toggle lights");
+					toggleLightPlayPause();
+					break;
+				case ('l'):
+				case ('L'):
+					console.log("step lights forward");
+					stepLightsForward();
+					break;
 			}
 
 			// Render the scene again on any key pressed.

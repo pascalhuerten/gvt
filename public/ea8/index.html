@@ -155,13 +155,28 @@
                 <canvas id="canvas" width="700" height="700"
                     style="border: 1px solid #ccc; border-radius: 4px; max-width:100%; height:auto;"></canvas>
             </div>
-            <!-- Sphere recursion widget -->
+            <div
+                style="max-width:700px;margin:12px auto 30px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:10px; border-radius:6px; display:flex;align-items:center;gap:12px; gap: 3em;">
+
+                <div style="display:flex; gap:8px; align-items:center;"><strong
+                        style=" margin-right:8px;">Kamera:</strong>
+                    <button id="play-pause" aria-label="Play Pause Rotation"
+                        style="font-size:14px;padding:6px 10px;">Play ▶</button>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <strong style="margin-right:8px;">Lichter:</strong>
+                    <button id="light-play-pause" aria-label="Play Pause Lights"
+                        style="font-size:14px;padding:6px 10px;">Pause ❚❚</button>
+                </div>
+            </div>
             <div id="key-help"
                 style="max-width:700px;margin:0 auto 20px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <strong>Tastatur-Steuerung</strong>
                 </div>
                 <ul style="margin:8px 0 0 16px;padding:0;color:#333;line-height:1.4;">
+                    <li><strong>l / L</strong>: Lichter manuell forwährts steppen</li>
+                    <li><strong>k / K</strong>: Lichter Pause/Play</li>
                     <li><strong>← / a , → / d</strong>: Kamera um Szene drehen</li>
                     <li><strong>w / s</strong>: Kameraneigung (Pitch) ändern</li>
                     <li><strong>o</strong>: Orthografische Projektion</li>
