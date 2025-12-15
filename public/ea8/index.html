@@ -262,6 +262,70 @@
 
         <section id="doc">
             <h2>Dokumentation</h2>
+
+            <h3>Toon Shading Umsetzung</h3>
+
+            <p>Das Toon Shading wurde als stilisierte Variante des klassischen Phong-Beleuchtungsmodells implementiert.
+                Die Inspiration stammt aus dem <a
+                    href="https://en.wikibooks.org/wiki/GLSL_Programming/Unity/Toon_Shading" target="_blank">
+                    GLSL Programming Wikibook - Toon Shading</a> Tutorial.</p>
+
+            <h4>Implementierungsdetails</h4>
+
+            <p><strong>1. Stylized Diffuse Illumination:</strong></p>
+            <div class="math-formula">
+                if (diffuseIntensity >= TOON_DIFFUSE_THRESHOLD_HIGH) {
+                // Level 1: Volle Farbe in gut beleuchteten Bereichen
+                result += material.kd * L;
+                } else if (diffuseIntensity >= TOON_DIFFUSE_THRESHOLD_LOW) {
+                // Level 2: Mittlerer Schatten - leicht dunklere Farbe
+                result += material.kd * L * TOON_SHADOW_BRIGHTNESS_MID;
+                } else {
+                // Level 3: Dunkler Schatten - dunkelste Farbe
+                result += material.kd * L * TOON_SHADOW_BRIGHTNESS_DARK;
+                }
+            </div>
+
+            <p>Die diffuse Beleuchtung wird in drei diskrete Helligkeitsstufen eingeteilt, statt eine glatte Gradation
+                zu verwenden.
+                Dies erzeugt den charakteristischen "cartoon-artigen" Effekt mit deutlichen Übergängen zwischen Licht
+                und Schatten.</p>
+
+            <p><strong>2. Stylized Specular Highlights:</strong></p>
+            <div class="math-formula">
+                if (diffuseIntensity > 0.0 && pow(specularIntensity, material.ke) > TOON_SPEC_THRESHOLD) {
+                result += material.ks * L; // Bright specular highlight
+                }
+            </div>
+
+            <p>Spekulare Highlights werden nur angezeigt, wenn beide die Diffus-Intensität und der Spekulare Glanz einen
+                bestimmten
+                Schwellwert überschreiten. Dies führt zu scharfen, definierten Glanzlichtern statt sanfter Übergänge.
+            </p>
+
+            <p><strong>3. Outlines:</strong></p>
+            <div class="math-formula">
+                float viewDot = dot(normalizedV, normalizedN);
+                float outlineIntensity = smoothstep(baseSmoothness, -baseSmoothness * 0.3, viewDot);
+            </div>
+
+            <p>Die Outlines werden durch Vergleich des Viewvektors mit der Oberflächennormalen erkannt.
+                <code>smoothstep</code> erzeugt glatte Übergänge an den Silhouettenkanten, während die Outline-Dicke mit
+                dem Parameter
+                <code>TOON_OUTLINE_THICKNESS</code> kontrolliert wird.
+            </p>
+
+            <h4>Konfigurierbare Parameter</h4>
+            <div class="shape-section">
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><code>TOON_DIFFUSE_THRESHOLD_HIGH</code> (0.5): Schwelle für volle Farbe</li>
+                    <li><code>TOON_DIFFUSE_THRESHOLD_LOW</code> (0.1): Schwelle für mittlen Schatten</li>
+                    <li><code>TOON_SPEC_THRESHOLD</code> (0.5): Schwelle für Glanzlichter</li>
+                    <li><code>TOON_OUTLINE_THICKNESS</code> (0.25): Dicke der Outlines</li>
+                    <li><code>TOON_SHADOW_BRIGHTNESS_MID</code> (0.3): Helligkeit mittlerer Schatten</li>
+                    <li><code>TOON_SHADOW_BRIGHTNESS_DARK</code> (0.1): Helligkeit dunkler Schatten</li>
+                </ul>
+            </div>
         </section>
     </main>
 </body>
