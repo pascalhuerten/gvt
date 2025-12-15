@@ -46,6 +46,7 @@ var app = (() => {
 	// Animation controls
 	let isPlaying = false; // whether auto-rotation is active (start playing by default)
 	let isLightsPlaying = true; // whether light animation is active (start playing by default)
+	let isToonShadingEnabled = false; // whether toon shading is enabled
 	const playSpeed = 0.3; // radians per second (rotation speed)
 	let _lastAnimTime = null;
 
@@ -126,6 +127,12 @@ var app = (() => {
 			const btn = document.getElementById('light-play-pause');
 			if (btn) btn.textContent = isLightsPlaying ? 'Pause ❚❚' : 'Play ▶';
 		}
+	}
+
+	function toggleToonShading() {
+		isToonShadingEnabled = !isToonShadingEnabled;
+		console.log("Toon shading: " + (isToonShadingEnabled ? "ON" : "OFF"));
+		render();
 	}
 
 	/**
@@ -284,6 +291,9 @@ var app = (() => {
 		prog.materialKdUniform = gl.getUniformLocation(prog, "material.kd");
 		prog.materialKsUniform = gl.getUniformLocation(prog, "material.ks");
 		prog.materialKeUniform = gl.getUniformLocation(prog, "material.ke");
+
+		// Toon Shading.
+		prog.toonShadingUniform = gl.getUniformLocation(prog, "uToonShading");
 	}
 
 	/**
@@ -352,13 +362,14 @@ var app = (() => {
 		models.push(sphereModel);
 		// createModel("sphere", fs, { , position: , color:  });
 		const coneModel = new Model(
-			new Cone({ radius: 0.47, height: 1.1, radialSegments: 32 }),
+			// new Cone({ radius: 0.47, height: 1.1, radialSegments: 32 }),
+			new Pine(),
 			gl, prog,
 			{
 				fillstyle: fs,
 				color: [0.9, 0.5, 0.7],
 				material: mBlue,
-				transform: { translation: [0.5, -0.17, 0.7] }
+				transform: { translation: [0.5, -0.47, 0.7], scale: [0.7, 0.7, 0.7] }
 			}
 		);
 		models.push(coneModel);
@@ -456,6 +467,11 @@ var app = (() => {
 					console.log("step lights forward");
 					stepLightsForward();
 					break;
+				case ('t'):
+				case ('T'):
+					console.log("toggle toon shading");
+					toggleToonShading();
+					break;
 			}
 
 			// Render the scene again on any key pressed.
@@ -532,6 +548,9 @@ var app = (() => {
 			gl.uniform3fv(prog.materialKdUniform, models[i].material.kd);
 			gl.uniform3fv(prog.materialKsUniform, models[i].material.ks);
 			gl.uniform1f(prog.materialKeUniform, models[i].material.ke);
+
+			// Toon Shading.
+			gl.uniform1i(prog.toonShadingUniform, isToonShadingEnabled ? 1 : 0);
 
 			draw(models[i]);
 		}

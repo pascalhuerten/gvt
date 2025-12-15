@@ -37,6 +37,7 @@
     <script src="../util/models/sphere.js"></script>
     <script src="../util/models/cube.js"></script>
     <script src="../util/models/cone.js"></script>
+    <script src="../util/models/pine.js"></script>
     <script src="../util/models/torus.js"></script>
     <script src="../util/models/plane.js"></script>
     <script src="../util/models/Model.js"></script>
@@ -95,23 +96,78 @@
         };
         uniform LightSource light[MAX_LIGHT_SOURCES];
 
-        // Phong illumination for single light source,
-        // no ambient light.
-        vec3 phong(vec3 p, vec3 n, vec3 v, LightSource l) {
+        // Toon shading toggle
+        uniform bool uToonShading;
+
+        // Toon shading parameters
+        const float TOON_DIFFUSE_THRESHOLD_HIGH = 0.5;  // High threshold for full color
+        const float TOON_DIFFUSE_THRESHOLD_LOW = 0.1;   // Low threshold for medium shadow
+        const float TOON_SPEC_THRESHOLD = 0.5;     // Threshold for specular highlights
+        const float TOON_OUTLINE_THICKNESS = 0.25;  // Outline detection thickness
+        const float TOON_SHADOW_BRIGHTNESS_MID = 0.3;   // Medium shadow brightness
+        const float TOON_SHADOW_BRIGHTNESS_DARK = 0.1;  // Dark shadow brightness
+
+        // Phong illumination for single light source with optional toon style
+        vec3 phongLight(vec3 p, vec3 n, vec3 v, LightSource l, bool useToon) {
 
             vec3 L = l.color;
-
-            vec3 s = normalize(l.position - p);
-            vec3 r = reflect(-s, n);
+            vec3 lightDir = normalize(l.position - p);
+            vec3 reflectDir = reflect(-lightDir, n);
             
-            float sn = max( dot(s,n), 0.0);
-            float rv = max( dot(r,v), 0.0);
-                        
-            vec3 diffuse = material.kd * L * sn;
-                                        
-            vec3 specular = material.ks * L * pow(rv, material.ke);
+            float diffuseIntensity = max(dot(lightDir, n), 0.0);
+            float specularIntensity = max(dot(reflectDir, v), 0.0);
 
-            return diffuse + specular;			
+            vec3 result = vec3(0.0);
+
+            if (useToon) {
+                // Stylized Diffuse Illumination - Three levels
+                if (diffuseIntensity >= TOON_DIFFUSE_THRESHOLD_HIGH) {
+                    // Level 1: Full color in well-lit areas
+                    result += material.kd * L;
+                } else if (diffuseIntensity >= TOON_DIFFUSE_THRESHOLD_LOW) {
+                    // Level 2: Medium shadow - slightly darker color
+                    result += material.kd * L * TOON_SHADOW_BRIGHTNESS_MID;
+                } else {
+                    // Level 3: Dark shadow - darkest color
+                    result += material.kd * L * TOON_SHADOW_BRIGHTNESS_DARK;
+                }
+                
+                // Stylized Specular Highlights
+                // Only show highlight if both normal and specular are above threshold
+                if (diffuseIntensity > 0.0 && pow(specularIntensity, material.ke) > TOON_SPEC_THRESHOLD) {
+                    result += material.ks * L;  // Add bright specular highlight
+                }
+            } else {
+                // Standard Phong shading
+                vec3 diffuse = material.kd * L * diffuseIntensity;
+                vec3 specular = material.ks * L * pow(specularIntensity, material.ke);
+                result = diffuse + specular;
+            }
+
+            return result;
+        }
+
+        // Detect outline based on view direction and normal
+        // Creates uniform outline thickness across different geometries
+        float getOutlineIntensity(vec3 n, vec3 v, float litIntensity) {
+            // Normalize both vectors to get clean silhouettes
+            vec3 normalizedN = normalize(n);
+            vec3 normalizedV = normalize(v);
+            
+            float viewDot = dot(normalizedV, normalizedN);
+            
+            // Use smoothstep for smooth transitions at edges
+            // This creates more uniform outlines regardless of geometry
+            float baseSmoothness = TOON_OUTLINE_THICKNESS;
+            
+            // Apply smoothstep to detect silhouettes with consistent width
+            // Smoother transition = more uniform outline width across geometries
+            float outlineIntensity = smoothstep(baseSmoothness, -baseSmoothness * 0.3, viewDot);
+            
+            // Optional: slightly thicker on unlit surfaces
+            outlineIntensity *= mix(1.3, 1.0, litIntensity);
+            
+            return outlineIntensity;
         }
 
         // Phong illumination for multiple light sources
@@ -120,12 +176,28 @@
             // Calculate ambient light.
             vec3 result = material.ka * ambientLight;
 
+            // Track if surface is lit for outline calculation
+            float maxLitIntensity = 0.0;
+
             // Add light from all light sources.
             for(int j=0; j < MAX_LIGHT_SOURCES; j++){
                 if(light[j].isOn){
-                    result += phong(p, n, v, light[j]);
+                    vec3 lightDir = normalize(light[j].position - p);
+                    float litIntensity = max(dot(lightDir, n), 0.0);
+                    maxLitIntensity = max(maxLitIntensity, litIntensity);
+                    result += phongLight(p, n, v, light[j], uToonShading);
                 }
             }
+
+            // Apply outlines if toon shading is enabled
+            if (uToonShading) {
+                float outlineIntensity = getOutlineIntensity(n, v, maxLitIntensity);
+                if (outlineIntensity > 0.0) {
+                    // Render outline in dark color
+                    result = vec3(0.1, 0.1, 0.1);  // Dark outline
+                }
+            }
+            
             return result;
         }
 
@@ -177,6 +249,7 @@
                 <ul style="margin:8px 0 0 16px;padding:0;color:#333;line-height:1.4;">
                     <li><strong>l / L</strong>: Lichter manuell forwährts steppen</li>
                     <li><strong>k / K</strong>: Lichter Pause/Play</li>
+                    <li><strong>t / T</strong>: Toon Shading an/aus</li>
                     <li><strong>← / a , → / d</strong>: Kamera um Szene drehen</li>
                     <li><strong>w / s</strong>: Kameraneigung (Pitch) ändern</li>
                     <li><strong>o</strong>: Orthografische Projektion</li>
