@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>EA8 | Lighting & Shapes | Pascal Hürten</title>
+    <title>EA9 | Torustextur | Pascal Hürten</title>
     <link rel="stylesheet" href="../style.css">
     <link rel="stylesheet" href="../ea2/style.css">
     <style>
@@ -34,7 +34,7 @@
     <!-- libraries & geometry generators -->
     <script src="../util/ext/gl-matrix.js"></script>
     <script src="../util/models/VertexDataGenerator.js"></script>
-    <script src="../util/models/sphere.js"></script>
+    <script src="../util/models/sphere-latlon.js"></script>
     <script src="../util/models/cube.js"></script>
     <script src="../util/models/cone.js"></script>
     <script src="../util/models/pine.js"></script>
@@ -49,6 +49,7 @@
     <script type="x-shader/x-vertex" id="vertexshader">
         attribute vec3 aPosition;
         attribute vec3 aNormal;
+        attribute vec2 aTextureCoord;
 
         uniform mat4 uPMatrix;
         uniform mat4 uMVMatrix;
@@ -56,6 +57,7 @@
 
         varying vec3 vNormal;
         varying vec4 vPosition;
+        varying vec2 vTextureCoord;
 
         void main(){
             // Calculate vertex position in eye coordinates. 
@@ -67,6 +69,7 @@
             
             vPosition = tPosition;
             vNormal = tNormal;
+            vTextureCoord = aTextureCoord;
         }
     </script>
     <script type="x-shader/x-fragment" id="fragmentshader">
@@ -74,6 +77,11 @@
 
         varying vec3 vNormal;
         varying vec4 vPosition;
+        varying vec2 vTextureCoord;
+
+        // Texture
+        uniform sampler2D uTexture;
+        uniform bool uHasTexture;
 
         // Material.
         struct PhongMaterial {
@@ -108,7 +116,8 @@
         const float TOON_SHADOW_BRIGHTNESS_DARK = 0.1;  // Dark shadow brightness
 
         // Phong illumination for single light source with optional toon style
-        vec3 phongLight(vec3 p, vec3 n, vec3 v, LightSource l, bool useToon) {
+        // baseColor is used as kd (and optionally ks) when texture is present
+        vec3 phongLight(vec3 p, vec3 n, vec3 v, LightSource l, bool useToon, vec3 baseColor) {
 
             vec3 L = l.color;
             vec3 lightDir = normalize(l.position - p);
@@ -123,13 +132,13 @@
                 // Stylized Diffuse Illumination - Three levels
                 if (diffuseIntensity >= TOON_DIFFUSE_THRESHOLD_HIGH) {
                     // Level 1: Full color in well-lit areas
-                    result += material.kd * L;
+                    result += baseColor * L;
                 } else if (diffuseIntensity >= TOON_DIFFUSE_THRESHOLD_LOW) {
                     // Level 2: Medium shadow - slightly darker color
-                    result += material.kd * L * TOON_SHADOW_BRIGHTNESS_MID;
+                    result += baseColor * L * TOON_SHADOW_BRIGHTNESS_MID;
                 } else {
                     // Level 3: Dark shadow - darkest color
-                    result += material.kd * L * TOON_SHADOW_BRIGHTNESS_DARK;
+                    result += baseColor * L * TOON_SHADOW_BRIGHTNESS_DARK;
                 }
                 
                 // Stylized Specular Highlights
@@ -139,7 +148,7 @@
                 }
             } else {
                 // Standard Phong shading
-                vec3 diffuse = material.kd * L * diffuseIntensity;
+                vec3 diffuse = baseColor * L * diffuseIntensity;
                 vec3 specular = material.ks * L * pow(specularIntensity, material.ke);
                 result = diffuse + specular;
             }
@@ -170,8 +179,15 @@
             return outlineIntensity;
         }
 
-        // Phong illumination for multiple light sources
+        // Phong illumination for multiple light sources with optional texture blending
         vec3 phong(vec3 p, vec3 n, vec3 v) {
+
+            // Get the base color: either from texture or from material
+            vec3 baseColor = material.kd;
+            if (uHasTexture) {
+                vec4 texColor = texture2D(uTexture, vTextureCoord);
+                baseColor = texColor.rgb;
+            }
 
             // Calculate ambient light.
             vec3 result = material.ka * ambientLight;
@@ -185,7 +201,7 @@
                     vec3 lightDir = normalize(light[j].position - p);
                     float litIntensity = max(dot(lightDir, n), 0.0);
                     maxLitIntensity = max(maxLitIntensity, litIntensity);
-                    result += phongLight(p, n, v, light[j], uToonShading);
+                    result += phongLight(p, n, v, light[j], uToonShading, baseColor);
                 }
             }
 
@@ -218,10 +234,10 @@
             <a href="../index.html">← Zurück zur Übersicht</a>
         </nav>
 
-        <h1>EA8 - Lichter auf einer Kreisbahn mit Toon Shading - Pascal Hürten</h1>
+        <h1>EA9 - Torustextur - Pascal Hürten</h1>
 
         <section id="viewer" aria-labelledby="viewer-heading">
-            <h2 id="viewer-heading">Licht</h2>
+            <h2 id="viewer-heading">Torustextur</h2>
 
             <div id="canvas-wrap" style="text-align: center; margin: 20px 0;">
                 <canvas id="canvas" width="700" height="700"
@@ -263,69 +279,7 @@
         <section id="doc">
             <h2>Dokumentation</h2>
 
-            <h3>Toon Shading Umsetzung</h3>
 
-            <p>Das Toon Shading wurde als stilisierte Variante des klassischen Phong-Beleuchtungsmodells implementiert.
-                Die Inspiration stammt aus dem <a
-                    href="https://en.wikibooks.org/wiki/GLSL_Programming/Unity/Toon_Shading" target="_blank">
-                    GLSL Programming Wikibook - Toon Shading</a> Tutorial.</p>
-
-            <h4>Implementierungsdetails</h4>
-
-            <p><strong>1. Stylized Diffuse Illumination:</strong></p>
-            <div class="math-formula">
-                if (diffuseIntensity >= TOON_DIFFUSE_THRESHOLD_HIGH) {
-                // Level 1: Volle Farbe in gut beleuchteten Bereichen
-                result += material.kd * L;
-                } else if (diffuseIntensity >= TOON_DIFFUSE_THRESHOLD_LOW) {
-                // Level 2: Mittlerer Schatten - leicht dunklere Farbe
-                result += material.kd * L * TOON_SHADOW_BRIGHTNESS_MID;
-                } else {
-                // Level 3: Dunkler Schatten - dunkelste Farbe
-                result += material.kd * L * TOON_SHADOW_BRIGHTNESS_DARK;
-                }
-            </div>
-
-            <p>Die diffuse Beleuchtung wird in drei diskrete Helligkeitsstufen eingeteilt, statt eine glatte Gradation
-                zu verwenden.
-                Dies erzeugt den charakteristischen "cartoon-artigen" Effekt mit deutlichen Übergängen zwischen Licht
-                und Schatten.</p>
-
-            <p><strong>2. Stylized Specular Highlights:</strong></p>
-            <div class="math-formula">
-                if (diffuseIntensity > 0.0 && pow(specularIntensity, material.ke) > TOON_SPEC_THRESHOLD) {
-                result += material.ks * L; // Bright specular highlight
-                }
-            </div>
-
-            <p>Spekulare Highlights werden nur angezeigt, wenn beide die Diffus-Intensität und der Spekulare Glanz einen
-                bestimmten
-                Schwellwert überschreiten. Dies führt zu scharfen, definierten Glanzlichtern statt sanfter Übergänge.
-            </p>
-
-            <p><strong>3. Outlines:</strong></p>
-            <div class="math-formula">
-                float viewDot = dot(normalizedV, normalizedN);
-                float outlineIntensity = smoothstep(baseSmoothness, -baseSmoothness * 0.3, viewDot);
-            </div>
-
-            <p>Die Outlines werden durch Vergleich des Viewvektors mit der Oberflächennormalen erkannt.
-                <code>smoothstep</code> erzeugt glatte Übergänge an den Silhouettenkanten, während die Outline-Dicke mit
-                dem Parameter
-                <code>TOON_OUTLINE_THICKNESS</code> kontrolliert wird.
-            </p>
-
-            <h4>Konfigurierbare Parameter</h4>
-            <div class="shape-section">
-                <ul style="margin: 0; padding-left: 20px;">
-                    <li><code>TOON_DIFFUSE_THRESHOLD_HIGH</code> (0.5): Schwelle für volle Farbe</li>
-                    <li><code>TOON_DIFFUSE_THRESHOLD_LOW</code> (0.1): Schwelle für mittlen Schatten</li>
-                    <li><code>TOON_SPEC_THRESHOLD</code> (0.5): Schwelle für Glanzlichter</li>
-                    <li><code>TOON_OUTLINE_THICKNESS</code> (0.25): Dicke der Outlines</li>
-                    <li><code>TOON_SHADOW_BRIGHTNESS_MID</code> (0.3): Helligkeit mittlerer Schatten</li>
-                    <li><code>TOON_SHADOW_BRIGHTNESS_DARK</code> (0.1): Helligkeit dunkler Schatten</li>
-                </ul>
-            </div>
         </section>
     </main>
 </body>

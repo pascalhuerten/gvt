@@ -15,6 +15,7 @@ class VertexDataGenerator {
         // These will be set by subclass implementation of createVertexData()
         this.vertices = null;      // Float32Array - flattened [x, y, z, x, y, z, ...]
         this.normals = null;       // Float32Array - flattened [nx, ny, nz, nx, ny, nz, ...]
+        this.textureCoord = null;  // Float32Array - texture coordinates [u, v, u, v, ...]
         this.indicesTris = null;   // Uint16Array - triangle indices [i0, i1, i2, i0, i1, i2, ...]
         this.indicesLines = null;  // Uint16Array - line indices [i0, i1, i0, i1, ...]
     }

@@ -24,6 +24,7 @@ class Model {
         this.fillstyle = options.fillstyle ?? 'fillwireframe';
         this.color = options.color ?? [1.0, 1.0, 1.0];
         this.material = options.material ?? null;
+        this.texture = options.texture ?? null;
         this.mvMatrix = mat4.create();
 
         // Generate vertex data
@@ -32,6 +33,7 @@ class Model {
         // Copy vertex data from generator
         this.vertices = geometryGenerator.vertices;
         this.normals = geometryGenerator.normals;
+        this.textureCoord = geometryGenerator.textureCoord;
         this.indicesTris = geometryGenerator.indicesTris;
         this.indicesLines = geometryGenerator.indicesLines;
 
@@ -64,6 +66,19 @@ class Model {
         gl.bufferData(gl.ARRAY_BUFFER, this.normals, gl.STATIC_DRAW);
         prog.normalAttrib = gl.getAttribLocation(prog, 'aNormal');
         gl.enableVertexAttribArray(prog.normalAttrib);
+
+        // Setup texture coordinate VBO
+        if (this.textureCoord) {
+            this.vboTexCoord = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vboTexCoord);
+            gl.bufferData(gl.ARRAY_BUFFER, this.textureCoord, gl.STATIC_DRAW);
+            prog.texCoordAttrib = gl.getAttribLocation(prog, 'aTextureCoord');
+            if (prog.texCoordAttrib !== -1) {
+                gl.enableVertexAttribArray(prog.texCoordAttrib);
+            }
+        } else {
+            this.vboTexCoord = null;
+        }
 
         // Optional color VBO if generator provides per-vertex colors
         if (this.generator.colors) {
@@ -103,6 +118,44 @@ class Model {
      */
     setTransform(transform) {
         this.#applyTransform(transform);
+    }
+
+    /**
+     * Load a texture image for this model.
+     * @param {WebGLRenderingContext} gl - WebGL context
+     * @param {string} filename - Path to texture image file
+     */
+    loadTexture(gl, filename) {
+        const texture = gl.createTexture();
+        texture.loaded = false;
+        texture.image = new Image();
+        texture.image.onload = () => {
+            this.#onTextureImageLoaded(gl, texture);
+        };
+        texture.image.src = filename;
+        this.texture = texture;
+    }
+
+    /**
+     * Handle texture image load completion.
+     * @private
+     */
+    #onTextureImageLoaded(gl, texture) {
+        texture.loaded = true;
+
+        // Bind and configure texture
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+
+        // Set texture parameters
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        gl.generateMipmap(gl.TEXTURE_2D);
+
+        // Release texture object
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
     /**

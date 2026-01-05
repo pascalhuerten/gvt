@@ -13,12 +13,15 @@ class Torus extends VertexDataGenerator {
         this.vertices = new Float32Array(3 * (n + 1) * (m + 1));
         // Normals
         this.normals = new Float32Array(3 * (n + 1) * (m + 1));
+        // Texture coordinates
+        this.textureCoord = new Float32Array(2 * (n + 1) * (m + 1));
         // Index data
         this.indicesLines = new Uint16Array(2 * 2 * n * m);
         this.indicesTris = new Uint16Array(3 * 2 * n * m);
 
         const vertices = this.vertices;
         const normals = this.normals;
+        const textureCoord = this.textureCoord;
         const indicesLines = this.indicesLines;
         const indicesTris = this.indicesTris;
 
@@ -51,6 +54,11 @@ class Torus extends VertexDataGenerator {
                 normals[iVertex * 3] = nx;
                 normals[iVertex * 3 + 1] = ny;
                 normals[iVertex * 3 + 2] = nz;
+
+                // Set texture coordinates
+                // u maps to horizontal (around the ring), v maps to vertical (around the tube)
+                textureCoord[iVertex * 2] = v / (2 * Math.PI);      // u texture coord [0, 1]
+                textureCoord[iVertex * 2 + 1] = u / (2 * Math.PI);  // v texture coord [0, 1]
 
                 // Set indices
                 if (j > 0 && i > 0) {
