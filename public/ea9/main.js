@@ -19,7 +19,7 @@ var app = (() => {
 		// Initial position of the camera.
 		eye: [0, 0, 0],
 		// Point to look at.
-		center: [0, 0, 0],
+		center: [0, 0.2, 0],
 		// Roll and pitch of the camera.
 		up: [0, 1, 0],
 		// Opening angle given in radian.
@@ -36,11 +36,11 @@ var app = (() => {
 		projectionType: "perspective",
 		// Angle to Z-Axis for camera when orbiting the center
 		// given in radian.
-		zAngle: -0.1,
+		zAngle: -0.25,
 		// Angle above the XZ-plane (pitch) in radian. 0 = horizon, positive = above.
 		xAngle: 0.4,
 		// Distance in XZ-Plane from center when orbiting.
-		distance: 3,
+		distance: 2.3,
 	};
 
 	// Animation controls
@@ -49,6 +49,7 @@ var app = (() => {
 	let isToonShadingEnabled = false; // whether toon shading is enabled
 	const playSpeed = 0.3; // radians per second (rotation speed)
 	let _lastAnimTime = null;
+	let _globalTime = 0; // global time for shader animations
 
 
 	// Objekt with light sources characteristics in the scene.
@@ -57,7 +58,7 @@ var app = (() => {
 		light: [
 			{
 				isOn: true,
-				position: [3., 1., 3.],
+				position: [-3., 1., 3.],
 				color: [1., 1., 1.],
 				// Orbit properties for animation
 				distance: 3.5,
@@ -93,6 +94,7 @@ var app = (() => {
 		if (!_lastAnimTime) _lastAnimTime = timestamp;
 		const dt = (timestamp - _lastAnimTime) / 1000.0;
 		_lastAnimTime = timestamp;
+		_globalTime += dt; // Increment global time for shader animations
 		if (isPlaying) {
 			// rotate clockwise by increasing zAngle
 			camera.zAngle += playSpeed * dt;
@@ -298,6 +300,15 @@ var app = (() => {
 		// Texture.
 		prog.textureUniform = gl.getUniformLocation(prog, "uTexture");
 		prog.hasTextureUniform = gl.getUniformLocation(prog, "uHasTexture");
+
+		// Procedural texture.
+		prog.useProceduralTextureUniform = gl.getUniformLocation(prog, "uUseProceduralTexture");
+		prog.timeUniform = gl.getUniformLocation(prog, "uTime");
+
+		// Debug logging
+		if (prog.useProceduralTextureUniform === null) {
+			console.error("uUseProceduralTexture uniform not found in shader!");
+		}
 	}
 
 	/**
@@ -321,10 +332,6 @@ var app = (() => {
 		const fs = "fill";
 
 		// Create some default material.
-		var mDefault = createPhongMaterial();// Create some default material.
-		var mRed = createPhongMaterial({ kd: [1., 0., 0.] });
-		var mGreen = createPhongMaterial({ kd: [0., 1., 0.] });
-		var mBlue = createPhongMaterial({ kd: [0., 0., 1.] });
 		var mWhite = createPhongMaterial({
 			ka: [1., 1., 1.], kd: [.5, .5, .5],
 			ks: [0., 0., 0.]
@@ -356,39 +363,24 @@ var app = (() => {
 				fillstyle: fs,
 				color: [0.6, 1.0, 0.7],
 				material: mPlanetary,
-				transform: { translation: [-0.55, 0, 0.58], rotation: [-0.6, -Math.PI / 6, 0] }
+				transform: { translation: [-0.45, 0.35, 0.35], rotation: [-0.9 + Math.PI, -Math.PI / 6, 0] }
 			}
 		);
 		models.push(torusModel);
-		torusModel.loadTexture(gl, '2k_mars.jpg');
+		torusModel.loadTexture(gl, 'feather-2.png');
 
-		const sphereModel = new Model(
-			new SphereLatLon({ radius: 1.0 }),
+		const torusModel2 = new Model(
+			new Torus(),
 			gl, prog,
 			{
 				fillstyle: fs,
-				color: [0.3, 0.8, 1.0],
+				color: [0.6, 1.0, 0.7],
 				material: mPlanetary,
-				transform: { translation: [0.5, 0.25, -0.6] }
+				transform: { translation: [0.85, 0.35, -0.35], rotation: [0.9, Math.PI / 2 + Math.PI / 3, 0] }
 			}
 		);
-		models.push(sphereModel);
-		sphereModel.loadTexture(gl, '2k_mars.jpg');
-
-		const pineModel = new Model(
-			// new Cone({ radius: 0.47, height: 1.1, radialSegments: 32 }),
-			new Pine(),
-			gl, prog,
-			{
-				fillstyle: fs,
-				color: [0.9, 0.5, 0.7],
-				material: mPlanetary,
-				transform: { translation: [0.5, -0.47, 0.7], scale: [0.7, 0.7, 0.7] }
-			}
-		);
-		models.push(pineModel);
-		pineModel.loadTexture(gl, '2k_mars.jpg');
-
+		models.push(torusModel2);
+		torusModel2.useProceduralTexture = true;  // Enable procedural texture for this model
 	}
 
 	// Update UI after models are initialized
@@ -524,6 +516,8 @@ var app = (() => {
 		// NEW
 		// Set light uniforms.
 		gl.uniform3fv(prog.ambientLightUniform, illumination.ambientLight);
+		// Set time uniform for shader animations
+		gl.uniform1f(prog.timeUniform, _globalTime);
 		// Loop over light sources.
 		for (var j = 0; j < illumination.light.length; j++) {
 			// bool is transferred as integer.
@@ -567,8 +561,12 @@ var app = (() => {
 			// Toon Shading.
 			gl.uniform1i(prog.toonShadingUniform, isToonShadingEnabled ? 1 : 0);
 
-			// Texture
-			const hasTexture = models[i].texture && models[i].texture.loaded;
+			// Procedural texture
+			const useProceduralTex = models[i].useProceduralTexture ? 1 : 0;
+			gl.uniform1i(prog.useProceduralTextureUniform, useProceduralTex);
+
+			// Texture (skip if using procedural texture)
+			const hasTexture = !useProceduralTex && models[i].texture && models[i].texture.loaded;
 			gl.uniform1i(prog.hasTextureUniform, hasTexture ? 1 : 0);
 			if (hasTexture) {
 				gl.activeTexture(gl.TEXTURE0);

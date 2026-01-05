@@ -82,6 +82,10 @@
         // Texture
         uniform sampler2D uTexture;
         uniform bool uHasTexture;
+        
+        // Procedural mode
+        uniform bool uUseProceduralTexture;
+        uniform float uTime;
 
         // Material.
         struct PhongMaterial {
@@ -114,6 +118,58 @@
         const float TOON_OUTLINE_THICKNESS = 0.25;  // Outline detection thickness
         const float TOON_SHADOW_BRIGHTNESS_MID = 0.3;   // Medium shadow brightness
         const float TOON_SHADOW_BRIGHTNESS_DARK = 0.1;  // Dark shadow brightness
+
+        // Simple pseudo-random function based on a seed
+        float pseudoRandom(vec2 seed) {
+            return fract(sin(dot(seed, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
+        // Procedural texture function - creates animated wavy stripes with periodic pattern
+        vec3 generateProceduralTexture(vec4 position, vec2 texCoord) {
+            
+            // Base frequencies for stripe patterns
+            float stripeFreq = 7.0;      // Vertical stripe frequency (y-axis)
+            float waveFreq = 8.0;        // Horizontal wave frequency (x-axis)
+            
+            const float PI = 3.1415;
+            const float TWO_PI = 6.2831;
+            
+            // Primary horizontal stripes based on texture v coordinate
+            float stripe = sin(texCoord.y * stripeFreq * PI) * 0.5 + 0.5;
+            
+            // Create wavy stripes that animate smoothly with time
+            float wavyPhase = fract(uTime * 0.1);
+            
+            // Create undulating waves in the horizontal direction
+            // The wave amplitude increases and decreases based on position and time
+            float waveAmplitude = sin(texCoord.y * waveFreq * PI + wavyPhase * TWO_PI) * 0.15;
+            float wavyOffset = sin((texCoord.x + waveAmplitude + wavyPhase * 0.5) * waveFreq * PI) * 0.5 + 0.5;
+            
+            // Secondary wavy pattern with different frequency for variety
+            float waveAmplitude2 = cos(texCoord.y * (waveFreq + 1.0) * PI + wavyPhase * TWO_PI) * 0.1;
+            float wavyOffset2 = sin((texCoord.x + waveAmplitude2 - wavyPhase * 0.3) * (waveFreq + 2.0) * PI) * 0.5 + 0.5;
+            
+            // Combine the wavy patterns
+            float wavyStripe = mix(wavyOffset, wavyOffset2, 0.4);
+            // Blend horizontal stripes with wavy stripes
+            float pattern = mix(stripe, wavyStripe, 0.4);
+            
+            // Create distinct color regions based on pattern
+            vec3 color1 = vec3(0.15, 0.35, 0.7);   // Blue
+            vec3 color2 = vec3(0.3, 0.6, 0.8);   // Hell Blau
+            
+            // Select color based on pattern value with hard edges for toon style
+            vec3 baseColor;
+            if (pattern > 0.65) {
+                baseColor = color1;
+            } else if (pattern > 0.35) {
+                baseColor = mix(color1, color2, (pattern - 0.35) / 0.35);
+            } else {
+                baseColor = color2;
+            }
+            
+            return baseColor;
+        }
 
         // Phong illumination for single light source with optional toon style
         // baseColor is used as kd (and optionally ks) when texture is present
@@ -182,15 +238,22 @@
         // Phong illumination for multiple light sources with optional texture blending
         vec3 phong(vec3 p, vec3 n, vec3 v) {
 
-            // Get the base color: either from texture or from material
+            // Get the base color: either from procedural texture, image texture or from material
             vec3 baseColor = material.kd;
-            if (uHasTexture) {
+            bool isProceduralTex = false;
+            
+            if (uUseProceduralTexture) {
+                baseColor = generateProceduralTexture(vPosition, vTextureCoord);
+                isProceduralTex = true;
+            } else if (uHasTexture) {
                 vec4 texColor = texture2D(uTexture, vTextureCoord);
                 baseColor = texColor.rgb;
             }
 
             // Calculate ambient light.
-            vec3 result = material.ka * ambientLight;
+            // For procedural textures, use higher ambient to preserve the pattern visibility
+            vec3 ambientColor = isProceduralTex ? baseColor * 0.6 : material.ka * ambientLight;
+            vec3 result = ambientColor;
 
             // Track if surface is lit for outline calculation
             float maxLitIntensity = 0.0;
@@ -223,7 +286,7 @@
 
             vec3 vNormal = normalize(vNormal);
 
-            gl_FragColor = vec4( phong(vPosition.xyz, vNormal, v), 1.0);
+            gl_FragColor = vec4(phong(vPosition.xyz, vNormal, v), 1.0);
         }
     </script>
 </head>
@@ -279,6 +342,51 @@
         <section id="doc">
             <h2>Dokumentation</h2>
 
+            <div class="shape-section">
+                <h4>Texturen</h4>
+                <p>
+                    Dieses Projekt zeigt zwei verschiedene Texturierungsansätze für den Torus:
+                </p>
+
+                <h5>1. Bild-Textur (AI-generiert)</h5>
+                <p>
+                    Die erste Torus-Textur wurde mit KI generiert. Das Bild wurde mit dem
+                    <a href="https://image-ai.academiccloud.de" target="_blank" rel="noopener noreferrer">
+                        KISSKI Image AI Service
+                    </a> der Academic Cloud erstellt.
+                </p>
+
+                <h5>2. Prozedurale Textur - Animierte Wellenmuster</h5>
+                <p>
+                    Die zweite Textur wird vollständig im Fragment-Shader berechnet und animiert. Sie kombiniert
+                    überlagerte Wellenmuster mit unterschiedlichen Frequenzen:
+                </p>
+                <ul style="margin: 8px 0 0 16px;">
+                    <li><strong>Horizontale Grundstreifen:</strong> basierend auf der Y-Texturkoordinate</li>
+                    <li><strong>Primäre & sekundäre Wellenmuster:</strong> mit zeitabhängiger Animation</li>
+                    <li><strong>Farb-Blending:</strong> drei Farbregionen mit sanften Übergängen</li>
+                </ul>
+
+                <p style="margin-top: 12px;">
+                    <strong>Technische Umsetzung:</strong>
+                </p>
+                <div class="math-formula">
+                    // Basis-Frequenzen<br>
+                    stripeFreq = 7.0; wavyPhase = fract(uTime * 0.1);<br>
+                    <br>
+                    // Primäre Welle mit Amplitude<br>
+                    waveAmplitude = sin(texCoord.y * 8.0 * PI + wavyPhase * TWO_PI) * 0.15;<br>
+                    wavyOffset = sin((texCoord.x + waveAmplitude + wavyPhase * 0.5) * 8.0 * PI) * 0.5 + 0.5;<br>
+                    <br>
+                    // Sekundäre Welle (andere Frequenz)<br>
+                    waveAmplitude2 = cos(texCoord.y * 9.0 * PI + wavyPhase * TWO_PI) * 0.1;<br>
+                    wavyOffset2 = sin((texCoord.x + waveAmplitude2 - wavyPhase * 0.3) * 10.0 * PI) * 0.5 + 0.5;
+                </div>
+
+                <p style="margin-top: 12px;">
+                    Die Animation erzeugt eine wellenartige Bewegung, die kontinuierlich über die Oberfläche fließt.
+                </p>
+            </div>
 
         </section>
     </main>
