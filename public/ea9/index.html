@@ -354,6 +354,7 @@
                     <a href="https://image-ai.academiccloud.de" target="_blank" rel="noopener noreferrer">
                         KISSKI Image AI Service
                     </a> der Academic Cloud erstellt.
+                    <a href="feather-2.png" target="_blank" rel="noopener noreferrer">Feder-Textur (Original)</a>
                 </p>
 
                 <h5>2. Prozedurale Textur - Animierte Wellenmuster</h5>
@@ -385,6 +386,19 @@
 
                 <p style="margin-top: 12px;">
                     Die Animation erzeugt eine wellenartige Bewegung, die kontinuierlich über die Oberfläche fließt.
+                </p>
+
+                <h5>3. Texturkoordinaten</h5>
+                <p>
+                    Die Texturkoordinaten werden parametrisch vom Torus erzeugt:
+                </p>
+                <ul style="margin: 8px 0 0 16px;">
+                    <li><strong>X-Koordinate (u):</strong> proportional zum Winkel um den Ring (v / 2π)</li>
+                    <li><strong>Y-Koordinate (v):</strong> proportional zum Winkel um die Röhre (u / 2π)</li>
+                </ul>
+                <p style="margin-top: 8px;">
+                    Dies erzeugt ein [0, 1] × [0, 1] Textur-Mapping, das die Federn und Wellenmuster gleichmäßig über
+                    die Torus-Oberfläche verteilt.
                 </p>
             </div>
 
