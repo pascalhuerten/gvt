@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>EA10 | Seeds 3D | Pascal Hürten</title>
+	<link rel="stylesheet" href="../style.css">
+	<link rel="stylesheet" href="../ea2/style.css">
+
+	<script src="ext/gl-matrix.js"></script>
+	<script src="ext/papaparse.min.js"></script>
+
+	<!--NEW DIM-->
+	<script src="ext/tsne.js"></script>
+
+	<script src="GVT_Src_vertexData_sphere.js"></script>
+
+	<!--NEW DIM-->
+	<script src="DIM_Src_Data_tpl.js"></script>
+	<script src="DIM_Src_tpl.js"></script>
+
+	<script type="x-shader/x-vertex" id="vertexshader">
+		attribute vec3 aPosition;
+		attribute vec3 aNormal;
+
+		uniform mat4 uPMatrix;
+		uniform mat4 uMVMatrix;
+		uniform mat3 uNMatrix;
+
+		varying vec3 vNormal;
+
+		void main(){
+			// Calculte vertex position in eye coordinates. 
+			vec4 tPosition = uMVMatrix * vec4(aPosition, 1.0);
+			// Calculate projektion.
+			gl_Position = uPMatrix * tPosition;
+
+			vec3 tNormal = normalize(uNMatrix * aNormal);
+			tNormal = uNMatrix * aNormal;
+			
+			vNormal = tNormal;
+		}
+	</script>
+	<script type="x-shader/x-fragment" id="fragmentshader">
+		precision mediump float;
+
+		varying vec3 vNormal;
+
+		// Material.
+		struct PhongMaterial {
+			vec3 ka;
+			vec3 kd;
+			vec3 ks;
+			float ke;
+		};
+		uniform PhongMaterial material;
+
+		// Ambient light.
+		uniform vec3 ambientLight;
+
+		vec3 camLight(vec3 n) {
+
+			vec3 ambient = material.ka * ambientLight;
+
+			vec3 s = vec3(0,0,1);
+			float sn = max( dot(s,n), 0.0);
+			vec3 diffuse = material.kd * sn;
+
+			return ambient + diffuse;
+		}
+
+		void main() {
+			vec3 vNormal = normalize(vNormal);
+			gl_FragColor = vec4(camLight(vNormal), 1.0);
+		}
+	</script>
+</head>
+
+<body onload="app.start()">
+	<main>
+		<nav class="breadcrumb" aria-label="Breadcrumb">
+			<a href="../index.html">← Zurück zur Übersicht</a>
+		</nav>
+
+		<h1>EA10 - Seeds 3D Dimensionsreduktion - Pascal Hürten</h1>
+
+		<section id="viewer" aria-labelledby="viewer-heading">
+			<h2 id="viewer-heading">t-SNE Seeds Dataset Visualisierung</h2>
+
+			<div id="canvas-wrap" style="text-align: center; margin: 20px 0;">
+				<canvas id="canvas" width="700" height="700"
+					style="border: 1px solid #ccc; border-radius: 4px; max-width:100%; height:auto;"></canvas>
+			</div>
+
+			<div class="legend"
+				style="max-width:700px;margin:0 auto 20px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px;">
+				<div><strong>Weizensorten:</strong></div>
+				<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:20px;">
+					<div class="legend-item" style="display:flex; align-items:center; gap:8px;">
+						<span class="legend-color"
+							style="display:inline-block; width:15px; height:15px; background-color: rgb(255, 0, 0); border-radius:2px;"></span>
+						<span>Kama (Klasse 1)</span>
+					</div>
+					<div class="legend-item" style="display:flex; align-items:center; gap:8px;">
+						<span class="legend-color"
+							style="display:inline-block; width:15px; height:15px; background-color: rgb(0, 255, 0); border-radius:2px;"></span>
+						<span>Rosa (Klasse 2)</span>
+					</div>
+					<div class="legend-item" style="display:flex; align-items:center; gap:8px;">
+						<span class="legend-color"
+							style="display:inline-block; width:15px; height:15px; background-color: rgb(0, 0, 255); border-radius:2px;"></span>
+						<span>Canadian (Klasse 3)</span>
+					</div>
+				</div>
+			</div>
+
+			<div id="info"
+				style="max-width:700px;margin:0 auto 20px; text-align:left; background:#e7f3fe; border-left:4px solid #2196F3; padding:12px; border-radius:6px;">
+				<div><strong>Dataset:</strong> Seeds (3 Klassen: Kama, Rosa, Canadian)</div>
+				<div><strong>Original Dimensionen:</strong> 7</div>
+				<div><strong>Reduziert auf:</strong> 3 Dimensionen (t-SNE)</div>
+				<div id="para"></div>
+				<div id="step"></div>
+				<div id="experiment"></div>
+			</div>
+
+			<div
+				style="max-width:700px;margin:12px auto 30px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:10px; border-radius:6px; display:flex;align-items:center;gap:12px; flex-wrap:wrap;">
+				<button class="button" onclick="app.restart()" aria-label="Restart t-SNE"
+					style="font-size:14px;padding:6px 10px;">Restart (R)</button>
+				<button class="button" onclick="app.stepOnce()" aria-label="Single Step"
+					style="font-size:14px;padding:6px 10px;">Step (T)</button>
+				<button class="button" onclick="app.stepMultiple(10)" aria-label="Step 10 times"
+					style="font-size:14px;padding:6px 10px;">Step ×10 (Shift+T)</button>
+				<button class="button" onclick="app.downloadResults()" aria-label="Download Results"
+					style="font-size:14px;padding:6px 10px;">Download (K)</button>
+			</div>
+
+			<div id="key-help"
+				style="max-width:700px;margin:0 auto 20px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+				<div style="display:flex;justify-content:space-between;align-items:center;">
+					<strong>Tastatur-Steuerung</strong>
+				</div>
+				<ul style="margin:8px 0 0 16px;padding:0;color:#333;line-height:1.4;">
+					<li><strong>R</strong>: t-SNE neustarten</li>
+					<li><strong>T</strong>: Eine Iterationen ausführen</li>
+					<li><strong>Shift+T</strong>: 10 Iterationen ausführen</li>
+					<li><strong>K</strong>: Ergebnisse herunterladen</li>
+					<li><strong>W / A / S / D</strong>: Kamera verschieben (horizontal)</li>
+					<li><strong>Space</strong>: Kamera hoch/runter</li>
+					<li><strong>X / Y / Z</strong>: Um Achsen drehen</li>
+					<li><strong>B</strong>: Zoom (In-/Auszoomen)</li>
+				</ul>
+			</div>
+		</section>
+
+		<section id="doc">
+			<h2>Dokumentation</h2>
+
+			Initial angezeigtes Ergebnis wurde mit folgenden Parametern auf Basis des Quelldatensatzes generiert:
+			<ul>
+				<li>Lernrate (epsilon): 10</li>
+				<li>Perplexity: 40</li>
+				<li>Dimensionen: 3</li>
+				<li>Iterationsschritte: 750</li>
+			</ul>
+		</section>
+	</main>
+</body>
+
+</html>

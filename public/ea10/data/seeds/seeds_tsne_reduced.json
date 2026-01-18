@@ -1,0 +1,11 @@
+{
+    "description": "Seeds dataset reduced to 3D using t-SNE",
+    "parameters": {
+        "epsilon": 10,
+        "perplexity": 30,
+        "dim": 3,
+        "iterations": 1000
+    },
+    "note": "These are optimized t-SNE parameters. Adjust perplexity and iterations as needed for better class separation.",
+    "data": []
+}
