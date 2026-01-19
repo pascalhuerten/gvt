@@ -881,8 +881,13 @@ var app = (function () {
         setModelTransformationFromData(map);
 
         // The Data gets centered by tSNE,
-        // thus we reset the camera translation to the origin.
-        if (tSNE.iter === 1) { mat4.identity(camera.vMatrix); }
+        // thus we reset the camera translation to the origin and refocus on the new centered data.
+        if (tSNE.iter === 1) {
+            mat4.identity(camera.vMatrix);
+            // Refocus camera on the reorganized centered data
+            vec3.set(camera.eye, 0, 0, 0);
+            rescaleModels(1.0); // Ensure models are at initial scale
+        }
 
         displayStepCounter_tSNE();
     }
