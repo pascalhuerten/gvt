@@ -89,6 +89,7 @@ var app = (function () {
 
     // NEW DIM
     var tSNE;
+    var originalFullData = []; // Store original 7D data for info panel
 
     function start() {
         Data.init();
@@ -108,6 +109,8 @@ var app = (function () {
         initModels();
         initEventHandler();
         initPipline();
+        // NEW DIM - Initialize grid visualization
+        GridVisualization.init(gl, prog);
     }
 
     function initWebGL() {
@@ -620,6 +623,13 @@ var app = (function () {
         //calculateCamera();
         // NAV END TEMPLATE COMMENT IN
 
+        // NEW DIM - Update interactive features with current matrices
+        var viewport = [0, 0, gl.viewportWidth, gl.viewportHeight];
+        InteractiveFeatures.updateMatrices(camera.pMatrix, camera.vMatrix, viewport);
+
+        // NEW DIM - Update grid size to match camera view
+        GridVisualization.updateGridSize(camera.lrtb * 2.0);
+
         // Set light uniforms.
         gl.uniform3fv(prog.ambientLightUniform, illumination.ambientLight);
         // Loop over light sources.
@@ -669,6 +679,18 @@ var app = (function () {
                 gl.uniform1i(prog.textureUniform, 0);
             }
             draw(models[i]);
+        }
+
+        // NEW DIM - Draw grid if enabled
+        if (InteractiveFeatures.isGridEnabled()) {
+            var gridModel = GridVisualization.getGridModel();
+            if (gridModel) {
+                updateTransformations(gridModel);
+                gl.uniformMatrix4fv(prog.mvMatrixUniform, false, gridModel.mvMatrix);
+                gl.uniformMatrix3fv(prog.nMatrixUniform, false, gridModel.nMatrix);
+                gl.uniform4fv(prog.colorUniform, [0.7, 0.7, 0.7, 1.0]);
+                draw(gridModel);
+            }
         }
     }
 
@@ -834,7 +856,7 @@ var app = (function () {
     function init_tSNE(data) {
         var opt = {};
         opt.epsilon = 10; // epsilon is learning rate (10 = default)
-        opt.perplexity = 8; // roughly how many neighbors each point influences (30 = default)
+        opt.perplexity = 40; // roughly how many neighbors each point influences (30 = default)
         opt.dim = 3; // dimensionality of the embedding (2 = default)
 
         tSNE = new tsnejs.tSNE(opt); // create a tSNE instance
@@ -882,15 +904,21 @@ var app = (function () {
 
     // NEW DIM / change
     function dataLoadedCallback(data, labels, stats) {
+        // Store original data for interactive features
+        originalFullData = JSON.parse(JSON.stringify(data));
 
         initModelsFromData(data, labels, stats);
         initCameraFromData(stats);
+
+        // NEW DIM - Initialize interactive features with viewport info
+        var canvas = document.getElementById('canvas');
+        var viewport = [0, 0, gl.viewportWidth, gl.viewportHeight];
+        InteractiveFeatures.init(canvas, models, labels, originalFullData, camera, camera.pMatrix, camera.vMatrix, viewport);
+
         render();
 
         init_tSNE(data);
-    }
-
-    // NEW DIM: Helper functions for UI buttons
+    }    // NEW DIM: Helper functions for UI buttons
     function restart() {
         Data.readFileFromServer('data/seeds/seeds_dataset.csv');
         init_tSNE(Data.getData());
@@ -912,6 +940,16 @@ var app = (function () {
         Data.downloadData();
     }
 
+    // NEW DIM - Interactive features
+    function toggleGrid() {
+        InteractiveFeatures.toggleGrid();
+        render();
+    }
+
+    function clearSelection() {
+        InteractiveFeatures.clearSelection();
+    }
+
     // App interface.
     return {
         start: start,
@@ -919,6 +957,8 @@ var app = (function () {
         restart: restart,
         stepOnce: stepOnce,
         stepMultiple: stepMultiple,
-        downloadResults: downloadResults
+        downloadResults: downloadResults,
+        toggleGrid: toggleGrid,
+        clearSelection: clearSelection
     };
 }());

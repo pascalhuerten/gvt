@@ -18,6 +18,8 @@
 
 	<!--NEW DIM-->
 	<script src="DIM_Src_Data_tpl.js"></script>
+	<script src="interactive-features.js"></script>
+	<script src="grid-visualization.js"></script>
 	<script src="DIM_Src_tpl.js"></script>
 
 	<script type="x-shader/x-vertex" id="vertexshader">
@@ -88,57 +90,78 @@
 		<section id="viewer" aria-labelledby="viewer-heading">
 			<h2 id="viewer-heading">t-SNE Seeds Dataset Visualisierung</h2>
 
-			<div id="canvas-wrap" style="text-align: center; margin: 20px 0;">
+			<div id="canvas-wrap" style="position:relative; text-align:center; margin:20px 0;">
 				<canvas id="canvas" width="700" height="700"
-					style="border: 1px solid #ccc; border-radius: 4px; max-width:100%; height:auto;"></canvas>
-			</div>
+					style="border:1px solid #ccc; border-radius:4px; max-width:100%; height:auto; display:block;"></canvas>
 
-			<div class="legend"
-				style="max-width:700px;margin:0 auto 20px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px;">
-				<div><strong>Weizensorten:</strong></div>
-				<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:20px;">
-					<div class="legend-item" style="display:flex; align-items:center; gap:8px;">
-						<span class="legend-color"
-							style="display:inline-block; width:15px; height:15px; background-color: rgb(255, 0, 0); border-radius:2px;"></span>
-						<span>Kama (Klasse 1)</span>
+				<!-- Legend overlay -->
+				<div class="legend"
+					style="position:absolute; top:12px; left:12px; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; max-width:250px;">
+					<div><strong>Weizensorten:</strong></div>
+					<div style="margin-top:8px; display:flex; flex-direction:column; gap:8px;">
+						<div class="legend-item" style="display:flex; align-items:center; gap:8px;">
+							<span class="legend-color"
+								style="display:inline-block; width:15px; height:15px; background-color:rgb(0, 255, 0); border-radius:2px;"></span>
+							<span>Kama (Klasse 1)</span>
+						</div>
+						<div class="legend-item" style="display:flex; align-items:center; gap:8px;">
+							<span class="legend-color"
+								style="display:inline-block; width:15px; height:15px; background-color:rgb(0, 0, 255); border-radius:2px;"></span>
+							<span>Rosa (Klasse 2)</span>
+						</div>
+						<div class="legend-item" style="display:flex; align-items:center; gap:8px;">
+							<span class="legend-color"
+								style="display:inline-block; width:15px; height:15px; background-color:rgb(255, 255, 0); border-radius:2px;"></span>
+							<span>Canadian (Klasse 3)</span>
+						</div>
 					</div>
-					<div class="legend-item" style="display:flex; align-items:center; gap:8px;">
-						<span class="legend-color"
-							style="display:inline-block; width:15px; height:15px; background-color: rgb(0, 255, 0); border-radius:2px;"></span>
-						<span>Rosa (Klasse 2)</span>
+				</div>
+
+				<!-- Info panel overlay -->
+				<div id="info-panel"
+					style="position:absolute; bottom:12px; right:12px; background:#f5f9ff; border-left:4px solid #2196F3; padding:12px; border-radius:6px; display:none; max-width:280px; max-height:400px; overflow-y:auto; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+					<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+						<strong>Selected Data Point</strong>
+						<button onclick="app.clearSelection()"
+							style="background:#ddd; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:12px;">✕</button>
 					</div>
-					<div class="legend-item" style="display:flex; align-items:center; gap:8px;">
-						<span class="legend-color"
-							style="display:inline-block; width:15px; height:15px; background-color: rgb(0, 0, 255); border-radius:2px;"></span>
-						<span>Canadian (Klasse 3)</span>
-					</div>
+					<div id="info-content" style="font-size:12px; font-family:monospace; line-height:1.5;"></div>
+				</div>
+
+				<!-- Info display -->
+				<div id="info"
+					style="position:absolute; top:12px; right:12px; background:#e7f3fe; border-left:4px solid #2196F3; padding:12px; border-radius:6px; font-size:13px; max-width:250px;">
+					<div><strong>Dataset:</strong> Seeds</div>
+					<div><strong>Original Dim:</strong> 7</div>
+					<div><strong>Reduziert:</strong> 3D (t-SNE)</div>
+					<div id="para" style="margin-top:8px; font-size:11px;"></div>
+					<div id="step" style="font-size:11px;"></div>
+					<div id="experiment" style="font-size:11px;"></div>
 				</div>
 			</div>
 
-			<div id="info"
-				style="max-width:700px;margin:0 auto 20px; text-align:left; background:#e7f3fe; border-left:4px solid #2196F3; padding:12px; border-radius:6px;">
-				<div><strong>Dataset:</strong> Seeds (3 Klassen: Kama, Rosa, Canadian)</div>
-				<div><strong>Original Dimensionen:</strong> 7</div>
-				<div><strong>Reduziert auf:</strong> 3 Dimensionen (t-SNE)</div>
-				<div id="para"></div>
-				<div id="step"></div>
-				<div id="experiment"></div>
+			<div
+				style="margin-top:20px; margin-bottom: 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+				<button class="button" onclick="app.restart()" aria-label="Restart t-SNE"
+					style="font-size:14px; padding:8px 12px;">Restart (R)</button>
+				<button class="button" onclick="app.stepOnce()" aria-label="Single Step"
+					style="font-size:14px; padding:8px 12px;">Step (T)</button>
+				<button class="button" onclick="app.stepMultiple(10)" aria-label="Step 10 times"
+					style="font-size:14px; padding:8px 12px;">Step ×10 (Shift+T)</button>
+				<button class="button" onclick="app.downloadResults()" aria-label="Download Results"
+					style="font-size:14px; padding:8px 12px;">Download (K)</button>
+				<label style="display:flex; align-items:center; gap:6px; font-size:14px;">
+					<input type="checkbox" id="showGrid" checked onchange="app.toggleGrid()" />
+					Show Axes (G)
+				</label>
 			</div>
 
-			<div
-				style="max-width:700px;margin:12px auto 30px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:10px; border-radius:6px; display:flex;align-items:center;gap:12px; flex-wrap:wrap;">
-				<button class="button" onclick="app.restart()" aria-label="Restart t-SNE"
-					style="font-size:14px;padding:6px 10px;">Restart (R)</button>
-				<button class="button" onclick="app.stepOnce()" aria-label="Single Step"
-					style="font-size:14px;padding:6px 10px;">Step (T)</button>
-				<button class="button" onclick="app.stepMultiple(10)" aria-label="Step 10 times"
-					style="font-size:14px;padding:6px 10px;">Step ×10 (Shift+T)</button>
-				<button class="button" onclick="app.downloadResults()" aria-label="Download Results"
-					style="font-size:14px;padding:6px 10px;">Download (K)</button>
+			<div id="hover-tooltip"
+				style="position:fixed; background:#333; color:#fff; padding:8px 12px; border-radius:4px; font-size:12px; pointer-events:none; display:none; z-index:1000; max-width:200px; box-shadow:0 2px 8px rgba(0,0,0,0.3);">
 			</div>
 
 			<div id="key-help"
-				style="max-width:700px;margin:0 auto 20px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+				style="margin:0 auto 20px; text-align:left; background:#fff; border:1px solid #e6e6e6; padding:12px; border-radius:6px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
 				<div style="display:flex;justify-content:space-between;align-items:center;">
 					<strong>Tastatur-Steuerung</strong>
 				</div>
@@ -151,6 +174,9 @@
 					<li><strong>Space</strong>: Kamera hoch/runter</li>
 					<li><strong>X / Y / Z</strong>: Um Achsen drehen</li>
 					<li><strong>B</strong>: Zoom (In-/Auszoomen)</li>
+					<li><strong>G</strong>: Achsen an/aus</li>
+					<li><strong>Click</strong>: Datenpunkt selektieren</li>
+					<li><strong>Esc</strong>: Auswahl löschen</li>
 				</ul>
 			</div>
 		</section>
