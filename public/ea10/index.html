@@ -186,11 +186,23 @@
 
 			Initial angezeigtes Ergebnis wurde mit folgenden Parametern auf Basis des Quelldatensatzes generiert:
 			<ul>
-				<li>Lernrate (epsilon): 10</li>
-				<li>Perplexity: 40</li>
+				<li>Lernrate (epsilon): 8</li>
+				<li>Perplexity: 10</li>
 				<li>Dimensionen: 3</li>
-				<li>Iterationsschritte: 750</li>
+				<li>Iterationsschritte: 650</li>
 			</ul>
+
+			<h3>Parameterauswahl</h3>
+			<p>
+				Diese Einstellungen wurden gewählt, da sich hier innerhalb der drei Klassen weitere Sub-Cluster
+				abbilden,
+				die untereinander Ähnlichkeiten zu haben scheinen. Bei größeren Werten für Perplexity (p > 15) tendiert
+				der t-SNE-Algorithmus dazu, die Daten
+				zunehmend eher in 2-Dimensionen abzubilden und Abgrenzungen zwischen den Klassen sowie innerhalb der
+				Klassen
+				sind weniger deutlich. Zudem hat es dein Eindruck, dass das "Area"-Feature bei höheren Perplexity-Werten
+				eine zu starke Gewichtung erfährt, was Ursache für die eher 2D-artige Verteilung der Punkte sein könnte.
+			</p>
 		</section>
 	</main>
 </body>

@@ -90,6 +90,7 @@ var app = (function () {
     // NEW DIM
     var tSNE;
     var originalFullData = []; // Store original 7D data for info panel
+    var tSNEHasBeenRecentered = false; // Track if camera was recentered for this tSNE run
 
     function start() {
         Data.init();
@@ -855,8 +856,8 @@ var app = (function () {
     // NEW DIM
     function init_tSNE(data) {
         var opt = {};
-        opt.epsilon = 10; // epsilon is learning rate (10 = default)
-        opt.perplexity = 40; // roughly how many neighbors each point influences (30 = default)
+        opt.epsilon = 8; // epsilon is learning rate (10 = default)
+        opt.perplexity = 10; // roughly how many neighbors each point influences (30 = default)
         opt.dim = 3; // dimensionality of the embedding (2 = default)
 
         tSNE = new tsnejs.tSNE(opt); // create a tSNE instance
@@ -864,6 +865,8 @@ var app = (function () {
         // Init from raw data (do not from a distance matrix, which is an other option).
         // The data is stored within t-SNE. Thus the data object can be re-used.
         tSNE.initDataRaw(data);
+
+        tSNEHasBeenRecentered = false; // Reset recentering flag for new tSNE run
 
         displayParameter_tSNE();
         displayStepCounter_tSNE();
@@ -882,11 +885,13 @@ var app = (function () {
 
         // The Data gets centered by tSNE,
         // thus we reset the camera translation to the origin and refocus on the new centered data.
-        if (tSNE.iter === 1) {
+        // Only recenter once after initialization, regardless of how many steps are taken
+        if (!tSNEHasBeenRecentered && tSNE.iter > 0) {
             mat4.identity(camera.vMatrix);
             // Refocus camera on the reorganized centered data
             vec3.set(camera.eye, 0, 0, 0);
             rescaleModels(1.0); // Ensure models are at initial scale
+            tSNEHasBeenRecentered = true;
         }
 
         displayStepCounter_tSNE();
